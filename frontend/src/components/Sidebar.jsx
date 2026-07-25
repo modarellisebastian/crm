@@ -4,7 +4,7 @@ import { supabase } from '../lib/supabase'
 
 const APP_NAME = import.meta.env.VITE_APP_NAME || 'Mi CRM'
 
-const LINKS = [
+const NEGOCIO_LINKS = [
   {
     to: '/',
     label: 'Dashboard',
@@ -63,15 +63,6 @@ const LINKS = [
     ),
   },
   {
-    to: '/casa',
-    label: 'Casa',
-    icon: (
-      <svg viewBox="0 0 20 20" fill="currentColor" className="w-[18px] h-[18px] shrink-0">
-        <path d="M9.293 2.293a1 1 0 0 1 1.414 0l7 7A1 1 0 0 1 17 11h-1v6a1 1 0 0 1-1 1h-3a1 1 0 0 1-1-1v-3a1 1 0 0 0-1-1H9a1 1 0 0 0-1 1v3a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1v-6H2a1 1 0 0 1-.707-1.707l7-7Z" />
-      </svg>
-    ),
-  },
-  {
     to: '/scraper',
     label: 'Scraper',
     icon: (
@@ -86,6 +77,18 @@ const LINKS = [
     icon: (
       <svg viewBox="0 0 20 20" fill="currentColor" className="w-[18px] h-[18px] shrink-0">
         <path d="M15.5 2A1.5 1.5 0 0 0 14 3.5v13a1.5 1.5 0 0 0 3 0v-13A1.5 1.5 0 0 0 15.5 2ZM9.5 6A1.5 1.5 0 0 0 8 7.5v9a1.5 1.5 0 0 0 3 0v-9A1.5 1.5 0 0 0 9.5 6ZM3.5 10A1.5 1.5 0 0 0 2 11.5v5a1.5 1.5 0 0 0 3 0v-5A1.5 1.5 0 0 0 3.5 10Z" />
+      </svg>
+    ),
+  },
+]
+
+const CASA_LINKS = [
+  {
+    to: '/casa',
+    label: 'Casa',
+    icon: (
+      <svg viewBox="0 0 20 20" fill="currentColor" className="w-[18px] h-[18px] shrink-0">
+        <path d="M9.293 2.293a1 1 0 0 1 1.414 0l7 7A1 1 0 0 1 17 11h-1v6a1 1 0 0 1-1 1h-3a1 1 0 0 1-1-1v-3a1 1 0 0 0-1-1H9a1 1 0 0 0-1 1v3a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1v-6H2a1 1 0 0 1-.707-1.707l7-7Z" />
       </svg>
     ),
   },
@@ -108,6 +111,29 @@ function Sidebar() {
   async function handleLogout() {
     await supabase.auth.signOut()
     navigate('/login', { replace: true })
+  }
+
+  function renderLink({ to, label, icon }) {
+    return (
+      <NavLink
+        key={to}
+        to={to}
+        end={to === '/'}
+        title={collapsed ? label : undefined}
+        className={({ isActive }) =>
+          [
+            'flex items-center gap-2.5 rounded-md px-2 py-2 text-sm font-medium transition-colors',
+            collapsed ? 'justify-center' : '',
+            isActive
+              ? 'bg-gray-100 text-gray-900'
+              : 'text-gray-500 hover:bg-gray-50 hover:text-gray-800',
+          ].join(' ')
+        }
+      >
+        {icon}
+        {!collapsed && <span className="truncate">{label}</span>}
+      </NavLink>
+    )
   }
 
   return (
@@ -143,27 +169,24 @@ function Sidebar() {
       </div>
 
       {/* Nav */}
-      <nav className="flex-1 px-2 py-3 space-y-0.5 overflow-y-auto overflow-x-hidden">
-        {LINKS.map(({ to, label, icon }) => (
-          <NavLink
-            key={to}
-            to={to}
-            end={to === '/'}
-            title={collapsed ? label : undefined}
-            className={({ isActive }) =>
-              [
-                'flex items-center gap-2.5 rounded-md px-2 py-2 text-sm font-medium transition-colors',
-                collapsed ? 'justify-center' : '',
-                isActive
-                  ? 'bg-gray-100 text-gray-900'
-                  : 'text-gray-500 hover:bg-gray-50 hover:text-gray-800',
-              ].join(' ')
-            }
-          >
-            {icon}
-            {!collapsed && <span className="truncate">{label}</span>}
-          </NavLink>
-        ))}
+      <nav className="flex-1 px-2 py-3 space-y-3 overflow-y-auto overflow-x-hidden">
+        <div className="space-y-0.5">
+          {!collapsed && (
+            <p className="px-2 pb-1 text-[10px] font-semibold text-gray-400 uppercase tracking-wide">
+              Negocio
+            </p>
+          )}
+          {NEGOCIO_LINKS.map(renderLink)}
+        </div>
+
+        <div className="space-y-0.5 border-t border-gray-100 pt-2.5">
+          {!collapsed && (
+            <p className="px-2 pb-1 text-[10px] font-semibold text-gray-400 uppercase tracking-wide">
+              Casa
+            </p>
+          )}
+          {CASA_LINKS.map(renderLink)}
+        </div>
       </nav>
 
       {/* Logout */}

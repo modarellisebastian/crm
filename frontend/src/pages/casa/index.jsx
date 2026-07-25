@@ -1,373 +1,17 @@
 import { useEffect, useState } from 'react'
-import { supabase } from '../lib/supabase'
-
-// ─── helpers ──────────────────────────────────────────────────────────────────
-
-function mesKey(date = new Date()) {
-  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`
-}
-
-function mesLabel(key) {
-  const [y, m] = key.split('-')
-  return new Date(Number(y), Number(m) - 1, 1)
-    .toLocaleDateString('es-AR', { month: 'long', year: 'numeric' })
-    .replace(/^\w/, (c) => c.toUpperCase())
-}
-
-function prevMes(key) {
-  const [y, m] = key.split('-').map(Number)
-  const d = new Date(y, m - 2, 1)
-  return mesKey(d)
-}
-
-function nextMes(key) {
-  const [y, m] = key.split('-').map(Number)
-  const d = new Date(y, m, 1)
-  return mesKey(d)
-}
-
-function formatARS(n) {
-  return new Intl.NumberFormat('es-AR', {
-    style: 'currency', currency: 'ARS', maximumFractionDigits: 0,
-  }).format(n ?? 0)
-}
-
-function formatUSD(n) {
-  return new Intl.NumberFormat('es-AR', {
-    style: 'currency', currency: 'USD', maximumFractionDigits: 0,
-  }).format(n ?? 0)
-}
-
-function numInput(val, set) {
-  return (e) => set(e.target.value === '' ? '' : e.target.value)
-}
-
-// ─── ModalSaldos ──────────────────────────────────────────────────────────────
-
-function ModalSaldos({ saldos, onGuardar, onCerrar }) {
-  const [form, setForm] = useState({
-    bbva:         saldos?.bbva         ?? '',
-    mercadopago:  saldos?.mercadopago  ?? '',
-    efectivo:     saldos?.efectivo     ?? '',
-    cuenta_dni:   saldos?.cuenta_dni   ?? '',
-    dolarapp_usd: saldos?.dolarapp_usd ?? '',
-    tipo_cambio:  saldos?.tipo_cambio  ?? '',
-  })
-  const [guardando, setGuardando] = useState(false)
-  const [error, setError] = useState(null)
-
-  function set(campo, valor) { setForm((f) => ({ ...f, [campo]: valor })) }
-
-  async function handleSubmit(e) {
-    e.preventDefault()
-    setGuardando(true)
-    setError(null)
-    const payload = {
-      fecha:        new Date().toISOString().split('T')[0],
-      bbva:         Number(form.bbva)         || 0,
-      mercadopago:  Number(form.mercadopago)  || 0,
-      efectivo:     Number(form.efectivo)     || 0,
-      cuenta_dni:   Number(form.cuenta_dni)   || 0,
-      dolarapp_usd: Number(form.dolarapp_usd) || 0,
-      tipo_cambio:  Number(form.tipo_cambio)  || 1500,
-    }
-    let result
-    if (saldos?.id) {
-      result = await supabase.from('casa_saldos').update(payload).eq('id', saldos.id).select().single()
-    } else {
-      result = await supabase.from('casa_saldos').insert(payload).select().single()
-    }
-    if (result.error) { setError(result.error.message); setGuardando(false); return }
-    onGuardar(result.data)
-  }
-
-  const campos = [
-    { key: 'bbva',         label: 'BBVA',         moneda: 'ARS' },
-    { key: 'mercadopago',  label: 'MercadoPago',  moneda: 'ARS' },
-    { key: 'efectivo',     label: 'Efectivo',      moneda: 'ARS' },
-    { key: 'cuenta_dni',   label: 'Cuenta DNI',    moneda: 'ARS' },
-    { key: 'dolarapp_usd', label: 'DolarApp',      moneda: 'USD' },
-    { key: 'tipo_cambio',  label: 'Tipo de cambio (1 USD = $)', moneda: null },
-  ]
-
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
-      <div className="bg-white rounded-2xl shadow-xl w-full max-w-sm">
-        <div className="flex items-center justify-between px-6 pt-5 pb-4 border-b border-gray-100">
-          <h2 className="text-base font-semibold text-gray-800">Actualizar saldos</h2>
-          <button onClick={onCerrar} className="text-gray-400 hover:text-gray-600 transition-colors">
-            <svg className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
-              <path d="M6.28 5.22a.75.75 0 00-1.06 1.06L8.94 10l-3.72 3.72a.75.75 0 101.06 1.06L10 11.06l3.72 3.72a.75.75 0 101.06-1.06L11.06 10l3.72-3.72a.75.75 0 00-1.06-1.06L10 8.94 6.28 5.22z" />
-            </svg>
-          </button>
-        </div>
-        <form onSubmit={handleSubmit} className="px-6 py-5 space-y-3">
-          {campos.map(({ key, label, moneda }) => (
-            <div key={key} className="flex items-center gap-3">
-              <label className="w-40 text-sm text-gray-600 shrink-0">{label}</label>
-              <div className="relative flex-1">
-                {moneda && (
-                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-xs text-gray-400 font-medium">
-                    {moneda === 'ARS' ? '$' : 'U$D'}
-                  </span>
-                )}
-                <input
-                  type="number" min="0" step="any"
-                  value={form[key]}
-                  onChange={numInput(form[key], (v) => set(key, v))}
-                  className={`w-full rounded-lg border border-gray-300 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 ${moneda ? 'pl-9 pr-3' : 'px-3'}`}
-                  placeholder="0"
-                />
-              </div>
-            </div>
-          ))}
-          {error && <p className="text-sm text-red-600">{error}</p>}
-          <div className="flex justify-end gap-2 pt-2">
-            <button type="button" onClick={onCerrar}
-              className="rounded-lg px-4 py-2 text-sm font-medium text-gray-600 hover:bg-gray-100 transition-colors">
-              Cancelar
-            </button>
-            <button type="submit" disabled={guardando}
-              className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-700 transition-colors disabled:opacity-50">
-              {guardando ? 'Guardando…' : 'Guardar'}
-            </button>
-          </div>
-        </form>
-      </div>
-    </div>
-  )
-}
-
-// ─── ModalGasto ───────────────────────────────────────────────────────────────
-
-const GASTOS_FIJOS_DEFAULT = [
-  'BBVA', 'Seguro Auto/casa', 'ICBC', 'Naranja Tarjeta',
-  'Inmobiliaria', 'Contador', 'Maternal', 'Monotributo',
-  'Préstamo TERE', 'Servicios', 'Patente',
-]
-
-function ModalGasto({ mes, item, onGuardar, onCerrar }) {
-  const editando = Boolean(item)
-  const [form, setForm] = useState({
-    nombre:          item?.nombre          ?? '',
-    monto:           item?.monto           ?? '',
-    vencimiento_dia: item?.vencimiento_dia ?? '',
-    pagado:          item?.pagado          ?? false,
-  })
-  const [guardando, setGuardando] = useState(false)
-  const [error, setError] = useState(null)
-
-  function set(campo, valor) { setForm((f) => ({ ...f, [campo]: valor })); setError(null) }
-
-  async function handleSubmit(e) {
-    e.preventDefault()
-    if (!form.nombre) { setError('Ingresá el nombre.'); return }
-    if (!form.monto)  { setError('Ingresá el monto.');  return }
-    setGuardando(true)
-    const payload = {
-      nombre:          form.nombre,
-      monto:           Number(form.monto),
-      vencimiento_dia: form.vencimiento_dia ? Number(form.vencimiento_dia) : null,
-      pagado:          form.pagado,
-    }
-    let result
-    if (editando) {
-      result = await supabase.from('casa_gastos_fijos').update(payload).eq('id', item.id).select().single()
-    } else {
-      result = await supabase.from('casa_gastos_fijos').insert({ mes, ...payload }).select().single()
-    }
-    if (result.error) { setError(result.error.message); setGuardando(false); return }
-    onGuardar(result.data)
-  }
-
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
-      <div className="bg-white rounded-2xl shadow-xl w-full max-w-sm">
-        <div className="flex items-center justify-between px-6 pt-5 pb-4 border-b border-gray-100">
-          <h2 className="text-base font-semibold text-gray-800">{editando ? 'Editar gasto fijo' : 'Nuevo gasto fijo'}</h2>
-          <button onClick={onCerrar} className="text-gray-400 hover:text-gray-600">
-            <svg className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
-              <path d="M6.28 5.22a.75.75 0 00-1.06 1.06L8.94 10l-3.72 3.72a.75.75 0 101.06 1.06L10 11.06l3.72 3.72a.75.75 0 101.06-1.06L11.06 10l3.72-3.72a.75.75 0 00-1.06-1.06L10 8.94 6.28 5.22z" />
-            </svg>
-          </button>
-        </div>
-        <form onSubmit={handleSubmit} className="px-6 py-5 space-y-4">
-          <div className="space-y-1.5">
-            <label className="block text-sm font-medium text-gray-700">Nombre</label>
-            <input list="gastos-list" value={form.nombre} onChange={(e) => set('nombre', e.target.value)}
-              placeholder="Ej: Inmobiliaria"
-              className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
-            <datalist id="gastos-list">
-              {GASTOS_FIJOS_DEFAULT.map((g) => <option key={g} value={g} />)}
-            </datalist>
-          </div>
-          <div className="grid grid-cols-2 gap-3">
-            <div className="space-y-1.5">
-              <label className="block text-sm font-medium text-gray-700">Monto</label>
-              <div className="relative">
-                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-gray-400">$</span>
-                <input type="number" min="0" step="1" value={form.monto}
-                  onChange={(e) => set('monto', e.target.value)} placeholder="0"
-                  className="w-full rounded-lg border border-gray-300 pl-7 pr-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
-              </div>
-            </div>
-            <div className="space-y-1.5">
-              <label className="block text-sm font-medium text-gray-700">Vence día</label>
-              <input type="number" min="1" max="31" value={form.vencimiento_dia}
-                onChange={(e) => set('vencimiento_dia', e.target.value)} placeholder="—"
-                className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
-            </div>
-          </div>
-          <label className="flex items-center gap-2 cursor-pointer">
-            <input type="checkbox" checked={form.pagado} onChange={(e) => set('pagado', e.target.checked)}
-              className="h-4 w-4 rounded border-gray-300 text-green-600 focus:ring-green-500" />
-            <span className="text-sm text-gray-700">Ya pagado</span>
-          </label>
-          {error && <p className="text-sm text-red-600">{error}</p>}
-          <div className="flex justify-end gap-2 pt-1">
-            <button type="button" onClick={onCerrar}
-              className="rounded-lg px-4 py-2 text-sm font-medium text-gray-600 hover:bg-gray-100 transition-colors">
-              Cancelar
-            </button>
-            <button type="submit" disabled={guardando}
-              className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-700 transition-colors disabled:opacity-50">
-              {guardando ? 'Guardando…' : 'Guardar'}
-            </button>
-          </div>
-        </form>
-      </div>
-    </div>
-  )
-}
-
-// ─── ModalIngreso ─────────────────────────────────────────────────────────────
-
-const INGRESOS_DEFAULT = [
-  'HOLAHELLO', 'iP Hoteles', 'Jero Montagna', 'App GYM',
-  'Megacompras', 'Peak', 'Cheeky', 'Leandro', 'FRAMAR',
-  'CHEIL ARGENTINA', 'Quatro Performance', 'SIGLO 21',
-]
-
-function ModalIngreso({ mes, item, onGuardar, onCerrar }) {
-  const editando = Boolean(item)
-  const [form, setForm] = useState({
-    nombre:  item?.nombre  ?? '',
-    tipo:    item?.tipo    ?? 'freelance',
-    moneda:  item?.moneda  ?? 'ars',
-    monto:   item?.monto   ?? '',
-    cobrado: item?.cobrado ?? false,
-  })
-  const [guardando, setGuardando] = useState(false)
-  const [error, setError] = useState(null)
-
-  function set(campo, valor) { setForm((f) => ({ ...f, [campo]: valor })); setError(null) }
-
-  function handleTipo(tipo) {
-    setForm((f) => ({
-      ...f, tipo,
-      moneda: tipo === 'sueldo_usd' ? 'usd' : 'ars',
-      nombre: tipo === 'sueldo_usd' ? 'Sueldo DolarApp' : f.nombre,
-    }))
-  }
-
-  async function handleSubmit(e) {
-    e.preventDefault()
-    if (!form.nombre) { setError('Ingresá el nombre.'); return }
-    if (!form.monto)  { setError('Ingresá el monto.');  return }
-    setGuardando(true)
-    const payload = {
-      nombre:  form.nombre,
-      tipo:    form.tipo,
-      moneda:  form.moneda,
-      monto:   Number(form.monto),
-      cobrado: form.cobrado,
-    }
-    let result
-    if (editando) {
-      result = await supabase.from('casa_ingresos').update(payload).eq('id', item.id).select().single()
-    } else {
-      result = await supabase.from('casa_ingresos').insert({ mes, ...payload }).select().single()
-    }
-    if (result.error) { setError(result.error.message); setGuardando(false); return }
-    onGuardar(result.data)
-  }
-
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
-      <div className="bg-white rounded-2xl shadow-xl w-full max-w-sm">
-        <div className="flex items-center justify-between px-6 pt-5 pb-4 border-b border-gray-100">
-          <h2 className="text-base font-semibold text-gray-800">{editando ? 'Editar ingreso' : 'Nuevo ingreso'}</h2>
-          <button onClick={onCerrar} className="text-gray-400 hover:text-gray-600">
-            <svg className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
-              <path d="M6.28 5.22a.75.75 0 00-1.06 1.06L8.94 10l-3.72 3.72a.75.75 0 101.06 1.06L10 11.06l3.72 3.72a.75.75 0 101.06-1.06L11.06 10l3.72-3.72a.75.75 0 00-1.06-1.06L10 8.94 6.28 5.22z" />
-            </svg>
-          </button>
-        </div>
-        <form onSubmit={handleSubmit} className="px-6 py-5 space-y-4">
-          {/* Tipo */}
-          <div className="grid grid-cols-2 gap-2">
-            {[
-              { val: 'freelance',  label: 'Freelance (ARS)' },
-              { val: 'sueldo_usd', label: 'Sueldo (USD)' },
-            ].map(({ val, label }) => (
-              <button key={val} type="button" onClick={() => handleTipo(val)}
-                className={`py-2 rounded-lg text-xs font-semibold border transition-colors ${
-                  form.tipo === val
-                    ? 'bg-blue-50 text-blue-700 border-blue-200'
-                    : 'border-gray-200 text-gray-500 hover:border-gray-300'
-                }`}>
-                {label}
-              </button>
-            ))}
-          </div>
-          {/* Nombre */}
-          <div className="space-y-1.5">
-            <label className="block text-sm font-medium text-gray-700">Nombre / Cliente</label>
-            <input list="ingresos-list" value={form.nombre} onChange={(e) => set('nombre', e.target.value)}
-              placeholder="Ej: HOLAHELLO"
-              className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
-            <datalist id="ingresos-list">
-              {INGRESOS_DEFAULT.map((n) => <option key={n} value={n} />)}
-            </datalist>
-          </div>
-          {/* Monto */}
-          <div className="space-y-1.5">
-            <label className="block text-sm font-medium text-gray-700">
-              Monto {form.moneda === 'usd' ? '(USD)' : '(ARS)'}
-            </label>
-            <div className="relative">
-              <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-gray-400">
-                {form.moneda === 'usd' ? 'U$D' : '$'}
-              </span>
-              <input type="number" min="0" step="any" value={form.monto}
-                onChange={(e) => set('monto', e.target.value)} placeholder="0"
-                className="w-full rounded-lg border border-gray-300 pl-10 pr-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
-            </div>
-          </div>
-          {/* Cobrado */}
-          <label className="flex items-center gap-2 cursor-pointer">
-            <input type="checkbox" checked={form.cobrado} onChange={(e) => set('cobrado', e.target.checked)}
-              className="h-4 w-4 rounded border-gray-300 text-green-600 focus:ring-green-500" />
-            <span className="text-sm text-gray-700">Ya cobrado</span>
-          </label>
-          {error && <p className="text-sm text-red-600">{error}</p>}
-          <div className="flex justify-end gap-2 pt-1">
-            <button type="button" onClick={onCerrar}
-              className="rounded-lg px-4 py-2 text-sm font-medium text-gray-600 hover:bg-gray-100 transition-colors">
-              Cancelar
-            </button>
-            <button type="submit" disabled={guardando}
-              className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-700 transition-colors disabled:opacity-50">
-              {guardando ? 'Guardando…' : 'Guardar'}
-            </button>
-          </div>
-        </form>
-      </div>
-    </div>
-  )
-}
-
-// ─── Página principal ─────────────────────────────────────────────────────────
+import {
+  fetchUltimosSaldos,
+  fetchGastosDelMes,
+  fetchIngresosDelMes,
+  actualizarPagadoGasto,
+  eliminarGasto as eliminarGastoService,
+  actualizarCobradoIngreso,
+  eliminarIngreso as eliminarIngresoService,
+} from '../../services/casaService'
+import { mesKey, mesLabel, prevMes, nextMes, formatARS, formatUSD } from './constants'
+import ModalSaldos from './ModalSaldos'
+import ModalGasto from './ModalGasto'
+import ModalIngreso from './ModalIngreso'
 
 export default function FinanzasCasa() {
   const [mes, setMes] = useState(mesKey())
@@ -393,9 +37,9 @@ export default function FinanzasCasa() {
         { data: g, error: e2 },
         { data: i, error: e3 },
       ] = await Promise.all([
-        supabase.from('casa_saldos').select('*').order('created_at', { ascending: false }).limit(1).maybeSingle(),
-        supabase.from('casa_gastos_fijos').select('*').eq('mes', mes).order('created_at'),
-        supabase.from('casa_ingresos').select('*').eq('mes', mes).order('created_at'),
+        fetchUltimosSaldos(),
+        fetchGastosDelMes(mes),
+        fetchIngresosDelMes(mes),
       ])
       if (e1 || e2 || e3) setError((e1 || e2 || e3).message)
       else { setSaldos(s); setGastos(g); setIngresos(i) }
@@ -438,27 +82,27 @@ export default function FinanzasCasa() {
   async function toggleGasto(g) {
     const nuevo = !g.pagado
     setGastos((prev) => prev.map((x) => x.id === g.id ? { ...x, pagado: nuevo } : x))
-    const { error: err } = await supabase.from('casa_gastos_fijos').update({ pagado: nuevo }).eq('id', g.id)
+    const { error: err } = await actualizarPagadoGasto(g.id, nuevo)
     if (err) setGastos((prev) => prev.map((x) => x.id === g.id ? { ...x, pagado: g.pagado } : x))
   }
 
   async function toggleIngreso(i) {
     const nuevo = !i.cobrado
     setIngresos((prev) => prev.map((x) => x.id === i.id ? { ...x, cobrado: nuevo } : x))
-    const { error: err } = await supabase.from('casa_ingresos').update({ cobrado: nuevo }).eq('id', i.id)
+    const { error: err } = await actualizarCobradoIngreso(i.id, nuevo)
     if (err) setIngresos((prev) => prev.map((x) => x.id === i.id ? { ...x, cobrado: i.cobrado } : x))
   }
 
   async function eliminarGasto(id) {
     setEliminandoG(id)
-    const { error: err } = await supabase.from('casa_gastos_fijos').delete().eq('id', id)
+    const { error: err } = await eliminarGastoService(id)
     if (!err) setGastos((prev) => prev.filter((x) => x.id !== id))
     setEliminandoG(null)
   }
 
   async function eliminarIngreso(id) {
     setEliminandoI(id)
-    const { error: err } = await supabase.from('casa_ingresos').delete().eq('id', id)
+    const { error: err } = await eliminarIngresoService(id)
     if (!err) setIngresos((prev) => prev.filter((x) => x.id !== id))
     setEliminandoI(null)
   }

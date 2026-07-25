@@ -7,10 +7,11 @@ import Leads from './pages/leads'
 import Pipeline from './pages/Pipeline'
 import Clientes from './pages/clientes'
 import Finanzas from './pages/Finanzas'
-import FinanzasCasa from './pages/FinanzasCasa'
 import Scraper from './pages/Scraper'
 import Reportes from './pages/Reportes'
 import Cola from './pages/Cola'
+// Casa (finanzas personales) — dominio separado del negocio, bajo /casa/*
+import FinanzasCasa from './pages/casa'
 
 function App() {
   return (
@@ -23,15 +24,18 @@ function App() {
           </RequireAuth>
         }
       >
+        {/* Negocio */}
         <Route index element={<Dashboard />} />
         <Route path="/leads"    element={<Leads />} />
         <Route path="/pipeline" element={<Pipeline />} />
         <Route path="/cola"     element={<Cola />} />
         <Route path="/clientes" element={<Clientes />} />
         <Route path="/finanzas" element={<Finanzas />} />
-        <Route path="/casa"     element={<FinanzasCasa />} />
-        <Route path="/scraper"   element={<Scraper />} />
-        <Route path="/reportes"  element={<Reportes />} />
+        <Route path="/scraper"  element={<Scraper />} />
+        <Route path="/reportes" element={<Reportes />} />
+
+        {/* Casa */}
+        <Route path="/casa/*" element={<FinanzasCasa />} />
       </Route>
     </Routes>
   )
