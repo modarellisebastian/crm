@@ -1,10 +1,7 @@
 -- ============================================================
--- SEED DE DATOS DE TEST
--- Ejecutar en Supabase → SQL Editor
+-- SEED DE DATOS DE TEST (data ficticia, no confundir con datos reales)
+-- Ejecutar en Supabase → SQL Editor, después de aplicar supabase/migrations/
 -- ============================================================
-
--- Agregar columna nombre a clients (necesaria para la página Finanzas)
-ALTER TABLE clients ADD COLUMN IF NOT EXISTS nombre text;
 
 -- ─── LEADS (10) ───────────────────────────────────────────────────────────────
 

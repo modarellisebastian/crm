@@ -1,8 +1,6 @@
--- Migration V3: nuevos estados del pipeline
--- Ejecutar en Supabase → SQL Editor
+-- Amplía los estados válidos del pipeline de leads.
+-- Equivalente al histórico migration_v3.sql.
 
--- 1. Buscar y eliminar el CHECK constraint sobre el campo estado
---    (usa pg_constraint en lugar de information_schema para evitar falsos positivos)
 DO $$
 DECLARE
   r record;
@@ -18,7 +16,6 @@ BEGIN
   END LOOP;
 END $$;
 
--- 2. Agregar el nuevo CHECK con los estados extendidos
 ALTER TABLE leads
   ADD CONSTRAINT leads_estado_check
   CHECK (estado IN (

@@ -6,8 +6,12 @@ CRM personal para gestión de prospectos/clientes y finanzas del hogar, compuest
 
 ```
 crm-leads/
-├── frontend/   # Aplicación React (Vite + Tailwind + React Router)
-├── scraper/    # Servicio Node.js (Express + Axios + Apify)
+├── frontend/          # Aplicación React (Vite + Tailwind + React Router)
+├── scraper/           # Servicio Node.js (Express + Axios + Apify)
+├── supabase/
+│   ├── migrations/    # Esquema de la base de datos, versionado y ordenado
+│   ├── optional/       # Scripts SQL opcionales (no se aplican con db push)
+│   └── seed/          # Datos de prueba (ficticios)
 ├── .gitignore
 └── README.md
 ```
@@ -15,10 +19,12 @@ crm-leads/
 ## Requisitos
 
 - Node.js >= 18
-- Cuenta en [Supabase](https://supabase.com)
+- Cuenta en [Supabase](https://supabase.com) — opcionalmente, [Supabase CLI](https://supabase.com/docs/guides/cli) para aplicar `supabase/migrations/` con `supabase db push`
 - Cuenta y token de API de [Apify](https://apify.com)
 
 ## Configuración
+
+Para crear el proyecto Supabase y aplicar el esquema, ver `SUPABASE_SETUP.md`.
 
 ### Frontend
 

@@ -1,14 +1,7 @@
--- ============================================================
--- CRM CAPTADOR DE LEADS — SCHEMA COMPLETO
--- Pegar en Supabase → SQL Editor → Run
--- ============================================================
+-- Esquema base: leads, clients, payments, servicios, scraper_config + RLS.
+-- Contenido equivalente al histórico schema.sql (raíz del proyecto, ya retirado).
 
--- ────────────────────────────────────────────────────────────
--- TABLAS
--- ────────────────────────────────────────────────────────────
-
--- Leads captados por el scraper (prospectos)
-CREATE TABLE leads (
+CREATE TABLE IF NOT EXISTS leads (
   id                      uuid        PRIMARY KEY DEFAULT gen_random_uuid(),
   created_at              timestamptz NOT NULL DEFAULT now(),
   nombre                  text,
@@ -36,8 +29,7 @@ CREATE TABLE leads (
   place_id                text
 );
 
--- Clientes (leads que cerraron)
-CREATE TABLE clients (
+CREATE TABLE IF NOT EXISTS clients (
   id                        uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   lead_id                   uuid REFERENCES leads(id) ON DELETE SET NULL,
   created_at                timestamptz NOT NULL DEFAULT now(),
@@ -53,8 +45,7 @@ CREATE TABLE clients (
   notas                     text
 );
 
--- Pagos asociados a un cliente
-CREATE TABLE payments (
+CREATE TABLE IF NOT EXISTS payments (
   id          uuid        PRIMARY KEY DEFAULT gen_random_uuid(),
   client_id   uuid        REFERENCES clients(id) ON DELETE CASCADE,
   created_at  timestamptz NOT NULL DEFAULT now(),
@@ -66,8 +57,7 @@ CREATE TABLE payments (
   horas       numeric
 );
 
--- Servicios recurrentes o únicos por cliente
-CREATE TABLE servicios (
+CREATE TABLE IF NOT EXISTS servicios (
   id          uuid        PRIMARY KEY DEFAULT gen_random_uuid(),
   client_id   uuid        REFERENCES clients(id) ON DELETE CASCADE,
   nombre      text,
@@ -78,8 +68,7 @@ CREATE TABLE servicios (
   activo      boolean     NOT NULL DEFAULT true
 );
 
--- Configuración de búsquedas del scraper
-CREATE TABLE scraper_config (
+CREATE TABLE IF NOT EXISTS scraper_config (
   id               uuid        PRIMARY KEY DEFAULT gen_random_uuid(),
   ciudad           text,
   rubro            text,
@@ -87,41 +76,56 @@ CREATE TABLE scraper_config (
   ultima_ejecucion timestamptz
 );
 
--- ────────────────────────────────────────────────────────────
--- ROW LEVEL SECURITY (RLS)
--- ────────────────────────────────────────────────────────────
-
 ALTER TABLE leads          ENABLE ROW LEVEL SECURITY;
 ALTER TABLE clients        ENABLE ROW LEVEL SECURITY;
 ALTER TABLE payments       ENABLE ROW LEVEL SECURITY;
 ALTER TABLE servicios      ENABLE ROW LEVEL SECURITY;
 ALTER TABLE scraper_config ENABLE ROW LEVEL SECURITY;
 
--- leads
+-- DROP + CREATE (en vez de solo CREATE) para que la migración sea segura de
+-- re-aplicar contra una base que ya tenga estas policies creadas a mano
+-- (Postgres no soporta CREATE POLICY IF NOT EXISTS).
+
+DROP POLICY IF EXISTS "leads: select" ON leads;
+DROP POLICY IF EXISTS "leads: insert" ON leads;
+DROP POLICY IF EXISTS "leads: update" ON leads;
+DROP POLICY IF EXISTS "leads: delete" ON leads;
 CREATE POLICY "leads: select" ON leads FOR SELECT TO authenticated USING (true);
 CREATE POLICY "leads: insert" ON leads FOR INSERT TO authenticated WITH CHECK (true);
 CREATE POLICY "leads: update" ON leads FOR UPDATE TO authenticated USING (true) WITH CHECK (true);
 CREATE POLICY "leads: delete" ON leads FOR DELETE TO authenticated USING (true);
 
--- clients
+DROP POLICY IF EXISTS "clients: select" ON clients;
+DROP POLICY IF EXISTS "clients: insert" ON clients;
+DROP POLICY IF EXISTS "clients: update" ON clients;
+DROP POLICY IF EXISTS "clients: delete" ON clients;
 CREATE POLICY "clients: select" ON clients FOR SELECT TO authenticated USING (true);
 CREATE POLICY "clients: insert" ON clients FOR INSERT TO authenticated WITH CHECK (true);
 CREATE POLICY "clients: update" ON clients FOR UPDATE TO authenticated USING (true) WITH CHECK (true);
 CREATE POLICY "clients: delete" ON clients FOR DELETE TO authenticated USING (true);
 
--- payments
+DROP POLICY IF EXISTS "payments: select" ON payments;
+DROP POLICY IF EXISTS "payments: insert" ON payments;
+DROP POLICY IF EXISTS "payments: update" ON payments;
+DROP POLICY IF EXISTS "payments: delete" ON payments;
 CREATE POLICY "payments: select" ON payments FOR SELECT TO authenticated USING (true);
 CREATE POLICY "payments: insert" ON payments FOR INSERT TO authenticated WITH CHECK (true);
 CREATE POLICY "payments: update" ON payments FOR UPDATE TO authenticated USING (true) WITH CHECK (true);
 CREATE POLICY "payments: delete" ON payments FOR DELETE TO authenticated USING (true);
 
--- servicios
+DROP POLICY IF EXISTS "servicios: select" ON servicios;
+DROP POLICY IF EXISTS "servicios: insert" ON servicios;
+DROP POLICY IF EXISTS "servicios: update" ON servicios;
+DROP POLICY IF EXISTS "servicios: delete" ON servicios;
 CREATE POLICY "servicios: select" ON servicios FOR SELECT TO authenticated USING (true);
 CREATE POLICY "servicios: insert" ON servicios FOR INSERT TO authenticated WITH CHECK (true);
 CREATE POLICY "servicios: update" ON servicios FOR UPDATE TO authenticated USING (true) WITH CHECK (true);
 CREATE POLICY "servicios: delete" ON servicios FOR DELETE TO authenticated USING (true);
 
--- scraper_config
+DROP POLICY IF EXISTS "scraper_config: select" ON scraper_config;
+DROP POLICY IF EXISTS "scraper_config: insert" ON scraper_config;
+DROP POLICY IF EXISTS "scraper_config: update" ON scraper_config;
+DROP POLICY IF EXISTS "scraper_config: delete" ON scraper_config;
 CREATE POLICY "scraper_config: select" ON scraper_config FOR SELECT TO authenticated USING (true);
 CREATE POLICY "scraper_config: insert" ON scraper_config FOR INSERT TO authenticated WITH CHECK (true);
 CREATE POLICY "scraper_config: update" ON scraper_config FOR UPDATE TO authenticated USING (true) WITH CHECK (true);

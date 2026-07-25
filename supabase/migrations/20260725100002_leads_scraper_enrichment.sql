@@ -1,5 +1,5 @@
--- Migración v2 — mejoras de scraper
--- Ejecutar sobre la DB existente. Seguro re-ejecutar (IF NOT EXISTS).
+-- Columnas de enriquecimiento del scraper (score, prioridad, geolocalización,
+-- presencia digital). Equivalente al histórico migration_v2.sql.
 
 ALTER TABLE leads
   ADD COLUMN IF NOT EXISTS tipo_presencia      text

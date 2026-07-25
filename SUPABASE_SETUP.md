@@ -1,6 +1,6 @@
 # Configuración de Supabase
 
-Guía paso a paso para crear la base de datos del CRM en Supabase.
+Guía para crear (o poner al día) la base de datos del CRM en Supabase.
 
 ---
 
@@ -23,186 +23,41 @@ Ir a **Project Settings → API** y copiar:
 | `VITE_SUPABASE_ANON_KEY` | `anon` / `public` key |
 | `SUPABASE_SERVICE_KEY` | `service_role` key (nunca exponerla en el frontend) |
 
-Pegar estos valores en los archivos `.env` correspondientes de `frontend/` y `scraper/`.
+Pegar estos valores en los archivos `.env` correspondientes de `frontend/` y `scraper/` (nunca en los `.env.example`, que deben quedar solo con placeholders).
 
 ---
 
-## 3. Ejecutar el SQL
+## 3. Aplicar el esquema
 
-Ir a **SQL Editor** en el panel de Supabase y pegar el siguiente bloque completo. Luego hacer clic en **Run**.
+El esquema completo vive versionado en `supabase/migrations/`, en orden:
 
-```sql
--- ============================================================
--- TABLAS
--- ============================================================
+| Archivo | Contenido |
+|---|---|
+| `20260725100001_initial_schema.sql` | Tablas base: `leads`, `clients`, `payments`, `servicios`, `scraper_config` + RLS |
+| `20260725100002_leads_scraper_enrichment.sql` | Columnas de scoring/geolocalización/presencia digital en `leads` |
+| `20260725100003_leads_pipeline_states.sql` | Amplía los estados válidos del pipeline de leads |
+| `20260725100004_payments_descripcion.sql` | Campo `descripcion` en `payments` |
+| `20260725100005_casa_finanzas.sql` | Tablas de finanzas del hogar: `casa_saldos`, `casa_gastos_fijos`, `casa_ingresos` + RLS |
+| `20260725100006_harden_casa_rls.sql` | Elimina las políticas laxas históricas de `casa_*` (sin restricción de rol) |
 
--- Leads captados (prospectos)
-CREATE TABLE leads (
-  id                      uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-  created_at              timestamptz NOT NULL DEFAULT now(),
-  nombre                  text,
-  rubro                   text,
-  ciudad                  text,
-  tiene_web               boolean NOT NULL DEFAULT false,
-  url_web                 text,
-  telefono                text,
-  whatsapp                text,
-  email                   text,
-  instagram               text,
-  facebook                text,
-  estado                  text NOT NULL DEFAULT 'nuevo'
-                            CHECK (estado IN (
-                              'nuevo',
-                              'contactado',
-                              'demo_enviado',
-                              'negociando',
-                              'cerrado',
-                              'descartado'
-                            )),
-  fecha_contacto          timestamptz,
-  fecha_ultimo_movimiento timestamptz,
-  notas                   text
-);
+**Con Supabase CLI** (recomendado):
 
--- Clientes (leads que cerraron)
-CREATE TABLE clients (
-  id                        uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-  lead_id                   uuid REFERENCES leads(id) ON DELETE SET NULL,
-  created_at                timestamptz NOT NULL DEFAULT now(),
-  url_sitio_entregado       text,
-  url_demo_stitch           text,
-  fecha_inicio              date,
-  fecha_vencimiento_hosting date,
-  notas                     text
-);
-
--- Pagos asociados a un cliente
-CREATE TABLE payments (
-  id          uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-  client_id   uuid REFERENCES clients(id) ON DELETE CASCADE,
-  created_at  timestamptz NOT NULL DEFAULT now(),
-  tipo        text NOT NULL
-                CHECK (tipo IN ('proyecto', 'mantenimiento', 'hosting')),
-  monto       numeric,
-  fecha_cobro date,
-  pagado      boolean NOT NULL DEFAULT false
-);
-
--- Configuración de búsquedas del scraper
-CREATE TABLE scraper_config (
-  id               uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-  ciudad           text,
-  rubro            text,
-  activo           boolean NOT NULL DEFAULT true,
-  ultima_ejecucion timestamptz
-);
-
--- ============================================================
--- ROW LEVEL SECURITY (RLS)
--- ============================================================
-
--- Habilitar RLS en todas las tablas
-ALTER TABLE leads          ENABLE ROW LEVEL SECURITY;
-ALTER TABLE clients        ENABLE ROW LEVEL SECURITY;
-ALTER TABLE payments       ENABLE ROW LEVEL SECURITY;
-ALTER TABLE scraper_config ENABLE ROW LEVEL SECURITY;
-
--- ------------------------------------------------------------
--- Políticas para leads
--- ------------------------------------------------------------
-CREATE POLICY "leads: lectura para usuario autenticado"
-  ON leads FOR SELECT
-  TO authenticated
-  USING (true);
-
-CREATE POLICY "leads: inserción para usuario autenticado"
-  ON leads FOR INSERT
-  TO authenticated
-  WITH CHECK (true);
-
-CREATE POLICY "leads: actualización para usuario autenticado"
-  ON leads FOR UPDATE
-  TO authenticated
-  USING (true)
-  WITH CHECK (true);
-
-CREATE POLICY "leads: eliminación para usuario autenticado"
-  ON leads FOR DELETE
-  TO authenticated
-  USING (true);
-
--- ------------------------------------------------------------
--- Políticas para clients
--- ------------------------------------------------------------
-CREATE POLICY "clients: lectura para usuario autenticado"
-  ON clients FOR SELECT
-  TO authenticated
-  USING (true);
-
-CREATE POLICY "clients: inserción para usuario autenticado"
-  ON clients FOR INSERT
-  TO authenticated
-  WITH CHECK (true);
-
-CREATE POLICY "clients: actualización para usuario autenticado"
-  ON clients FOR UPDATE
-  TO authenticated
-  USING (true)
-  WITH CHECK (true);
-
-CREATE POLICY "clients: eliminación para usuario autenticado"
-  ON clients FOR DELETE
-  TO authenticated
-  USING (true);
-
--- ------------------------------------------------------------
--- Políticas para payments
--- ------------------------------------------------------------
-CREATE POLICY "payments: lectura para usuario autenticado"
-  ON payments FOR SELECT
-  TO authenticated
-  USING (true);
-
-CREATE POLICY "payments: inserción para usuario autenticado"
-  ON payments FOR INSERT
-  TO authenticated
-  WITH CHECK (true);
-
-CREATE POLICY "payments: actualización para usuario autenticado"
-  ON payments FOR UPDATE
-  TO authenticated
-  USING (true)
-  WITH CHECK (true);
-
-CREATE POLICY "payments: eliminación para usuario autenticado"
-  ON payments FOR DELETE
-  TO authenticated
-  USING (true);
-
--- ------------------------------------------------------------
--- Políticas para scraper_config
--- ------------------------------------------------------------
-CREATE POLICY "scraper_config: lectura para usuario autenticado"
-  ON scraper_config FOR SELECT
-  TO authenticated
-  USING (true);
-
-CREATE POLICY "scraper_config: inserción para usuario autenticado"
-  ON scraper_config FOR INSERT
-  TO authenticated
-  WITH CHECK (true);
-
-CREATE POLICY "scraper_config: actualización para usuario autenticado"
-  ON scraper_config FOR UPDATE
-  TO authenticated
-  USING (true)
-  WITH CHECK (true);
-
-CREATE POLICY "scraper_config: eliminación para usuario autenticado"
-  ON scraper_config FOR DELETE
-  TO authenticated
-  USING (true);
+```bash
+supabase link --project-ref <tu-project-ref>
+supabase db push
 ```
+
+**Sin CLI:** ir a **SQL Editor** y pegar el contenido de cada archivo de `supabase/migrations/`, en orden, uno por uno, con **Run**.
+
+Todas las migraciones están escritas para ser seguras de re-aplicar (`IF NOT EXISTS` / `DROP POLICY IF EXISTS` antes de recrear), así que no hay problema en correrlas contra una base que ya tenga estas tablas creadas manualmente de una configuración anterior.
+
+### Opcional: auto-transición de leads en el servidor
+
+`supabase/optional/pg_cron_auto_transition.sql` agenda un job de `pg_cron` que pasa leads de `contactado` a `sin_respuesta` tras 72hs sin movimiento. No es parte de la cadena de migraciones (no se aplica con `db push`) porque el frontend ya hace lo mismo del lado del cliente (`frontend/src/pages/Leads.jsx`) — aplicar este script solo si además se quiere que corra en el servidor sin depender de que alguien tenga la app abierta.
+
+### Datos de prueba (opcional)
+
+`supabase/seed/seed_test.sql` tiene data ficticia de leads/clientes/pagos para probar la UI sin datos reales. Pegar en **SQL Editor → Run** después de las migraciones.
 
 ---
 
@@ -218,19 +73,17 @@ El frontend ya implementa el login con estas credenciales (`frontend/src/pages/L
 
 ## 5. Verificar las tablas
 
-Ir a **Table Editor** y confirmar que aparecen las cuatro tablas:
+Ir a **Table Editor** y confirmar que aparecen:
 
-- `leads`
-- `clients`
-- `payments`
-- `scraper_config`
+- `leads`, `clients`, `payments`, `servicios`, `scraper_config`
+- `casa_saldos`, `casa_gastos_fijos`, `casa_ingresos`
 
 ---
 
 ## Notas sobre las políticas RLS
 
-- Las políticas aplicadas son **permisivas para cualquier usuario autenticado**. Esto es adecuado para un CRM de uso personal o de equipo pequeño donde todos los usuarios tienen acceso total.
-- Si en el futuro se necesita aislar datos por usuario, agregar `auth.uid()` a las condiciones `USING`. Ejemplo:
+- Las políticas aplicadas son **permisivas para cualquier usuario autenticado**. Esto es adecuado para un CRM de uso personal donde el único usuario tiene acceso total a todo.
+- Si en el futuro se necesita aislar datos por usuario (más de una persona usando el CRM), agregar `auth.uid()` a las condiciones `USING`. Ejemplo:
   ```sql
   -- Variante multi-usuario (referencia, no ejecutar ahora)
   USING (user_id = auth.uid())
@@ -239,39 +92,6 @@ Ir a **Table Editor** y confirmar que aparecen las cuatro tablas:
 
 ---
 
-## Migración v2 — mejoras de scraper
+## Datos financieros personales (finanzas de casa)
 
-Pegar en **SQL Editor → Run** sobre la base de datos existente. Todos los `IF NOT EXISTS` hacen que sea seguro re-ejecutar.
-
-```sql
-ALTER TABLE leads
-  ADD COLUMN IF NOT EXISTS tipo_presencia      text
-    CHECK (tipo_presencia IN ('web_propia','instagram','facebook','linktree','ninguna')),
-  ADD COLUMN IF NOT EXISTS linktree            text,
-  ADD COLUMN IF NOT EXISTS rating              numeric,
-  ADD COLUMN IF NOT EXISTS reviews_count       integer,
-  ADD COLUMN IF NOT EXISTS image_count         integer,
-  ADD COLUMN IF NOT EXISTS categoria_google    text,
-  ADD COLUMN IF NOT EXISTS direccion           text,
-  ADD COLUMN IF NOT EXISTS lat                 numeric,
-  ADD COLUMN IF NOT EXISTS lng                 numeric,
-  ADD COLUMN IF NOT EXISTS descripcion_google  text,
-  ADD COLUMN IF NOT EXISTS cerrado_permanente  boolean NOT NULL DEFAULT false,
-  ADD COLUMN IF NOT EXISTS score               integer NOT NULL DEFAULT 0,
-  ADD COLUMN IF NOT EXISTS prioridad           text
-    CHECK (prioridad IN ('alta','media','baja'));
-
-CREATE INDEX IF NOT EXISTS idx_leads_score     ON leads (score DESC);
-CREATE INDEX IF NOT EXISTS idx_leads_prioridad ON leads (prioridad);
-CREATE INDEX IF NOT EXISTS idx_leads_ciudad    ON leads (ciudad);
-```
-
----
-
-## Nota sobre el estado de este documento
-
-Este archivo describe el esquema original y quedó desactualizado respecto al estado real de la base de datos: no incluye las tablas `servicios`, `casa_saldos`, `casa_gastos_fijos`, `casa_ingresos`, ni varias columnas agregadas por `migration_v3.sql` a `migration_v7.sql`. El esquema completo y actualizado vive en `schema.sql` + `migration_v2.sql` … `migration_v7.sql` en la raíz del proyecto (deben aplicarse en orden). Este documento se consolidará en una única fuente de verdad versionada como parte del refactor (ver plan de refactor).
-
-## Migración v7 — endurecer RLS de finanzas de casa
-
-`migration_v6.sql` dejó las políticas de `casa_saldos`, `casa_gastos_fijos` y `casa_ingresos` como `FOR ALL USING (true)` sin restringir el rol — más laxo que el resto de las tablas, que ya exigen `authenticated`. `migration_v7.sql` las alinea con el resto del esquema. Pegar su contenido en **SQL Editor → Run** sobre la base de datos existente.
+Tus datos reales de `casa_*` no se versionan en este repo — `seed_casa.sql` (si existe en tu copia local) está en `.gitignore` a propósito. Cargá tus datos reales directamente desde la UI del CRM (`/casa`) o pegando tu propio SQL local, pero no lo agregues al control de versiones.

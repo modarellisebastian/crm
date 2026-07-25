@@ -1,14 +1,15 @@
--- Migration V5: auto-transición contactado → sin_respuesta vía pg_cron
--- OPCIONAL — solo si querés que corra en el servidor cada hora sin abrir la app
--- Ejecutar en Supabase → SQL Editor
+-- OPCIONAL — no es parte de la cadena de migraciones (no se aplica con
+-- `supabase db push`). Ejecutar a mano en el SQL Editor solo si se quiere
+-- que la transición contactado → sin_respuesta corra en el servidor cada
+-- hora, en vez de (o además de) la lógica equivalente que ya corre en el
+-- cliente al cargar frontend/src/pages/Leads.jsx.
+-- Equivalente al histórico migration_v5.sql.
 
--- 1. Habilitar pg_cron (solo hace falta una vez por proyecto)
 CREATE EXTENSION IF NOT EXISTS pg_cron;
 
--- 2. Agendar el job: cada hora revisa leads contactados con >72hs de inactividad
 SELECT cron.schedule(
-  'contactado-sin-respuesta-72h',        -- nombre del job
-  '0 * * * *',                           -- cada hora en punto
+  'contactado-sin-respuesta-72h',
+  '0 * * * *',
   $$
     UPDATE leads
     SET

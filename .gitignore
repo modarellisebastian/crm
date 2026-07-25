@@ -32,3 +32,6 @@ Thumbs.db
 
 # Claude Code local settings
 .claude/settings.local.json
+
+# Datos financieros personales reales (no son data de prueba)
+seed_casa.sql
