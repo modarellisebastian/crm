@@ -5,7 +5,6 @@ import Login from './pages/Login'
 import Dashboard from './pages/Dashboard'
 import Leads from './pages/leads'
 import Clientes from './pages/clientes'
-import Finanzas from './pages/Finanzas'
 import Scraper from './pages/Scraper'
 import Reportes from './pages/Reportes'
 import Cola from './pages/Cola'
@@ -28,7 +27,6 @@ function App() {
         <Route path="/leads"    element={<Leads />} />
         <Route path="/cola"     element={<Cola />} />
         <Route path="/clientes" element={<Clientes />} />
-        <Route path="/finanzas" element={<Finanzas />} />
         <Route path="/scraper"  element={<Scraper />} />
         <Route path="/reportes" element={<Reportes />} />
 

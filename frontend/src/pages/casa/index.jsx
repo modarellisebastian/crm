@@ -1,52 +1,45 @@
 import { useEffect, useState } from 'react'
 import {
   fetchUltimosSaldos,
-  fetchGastosDelMes,
-  fetchIngresosDelMes,
-  actualizarPagadoGasto,
-  eliminarGasto as eliminarGastoService,
-  actualizarCobradoIngreso,
-  eliminarIngreso as eliminarIngresoService,
+  fetchMovimientosDelMes,
+  actualizarResueltoMovimiento,
+  eliminarMovimiento,
 } from '../../services/casaService'
 import { mesKey, mesLabel, prevMes, nextMes, formatARS, formatUSD } from './constants'
 import ModalSaldos from './ModalSaldos'
-import ModalGasto from './ModalGasto'
-import ModalIngreso from './ModalIngreso'
+import ModalMovimiento from './ModalMovimiento'
 
 export default function FinanzasCasa() {
   const [mes, setMes] = useState(mesKey())
   const [saldos, setSaldos] = useState(null)
-  const [gastos, setGastos] = useState([])
-  const [ingresos, setIngresos] = useState([])
+  const [movimientos, setMovimientos] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
 
-  const [modalSaldos,   setModalSaldos]   = useState(false)
-  const [modalGasto,    setModalGasto]    = useState(false)
-  const [modalIngreso,  setModalIngreso]  = useState(false)
-  const [editandoG,     setEditandoG]     = useState(null)
-  const [editandoI,     setEditandoI]     = useState(null)
-  const [eliminandoG,   setEliminandoG]   = useState(null)
-  const [eliminandoI,   setEliminandoI]   = useState(null)
+  const [modalSaldos, setModalSaldos] = useState(false)
+  const [modalNuevo,  setModalNuevo]  = useState(null) // null | 'egreso' | 'ingreso'
+  const [editando,    setEditando]    = useState(null) // movimiento en edición
+  const [eliminando,  setEliminando]  = useState(null)
 
   useEffect(() => {
     async function fetchData() {
       setLoading(true)
       const [
         { data: s, error: e1 },
-        { data: g, error: e2 },
-        { data: i, error: e3 },
+        { data: m, error: e2 },
       ] = await Promise.all([
         fetchUltimosSaldos(),
-        fetchGastosDelMes(mes),
-        fetchIngresosDelMes(mes),
+        fetchMovimientosDelMes(mes),
       ])
-      if (e1 || e2 || e3) setError((e1 || e2 || e3).message)
-      else { setSaldos(s); setGastos(g); setIngresos(i) }
+      if (e1 || e2) setError((e1 || e2).message)
+      else { setSaldos(s); setMovimientos(m) }
       setLoading(false)
     }
     fetchData()
   }, [mes])
+
+  const gastos   = movimientos.filter((m) => m.tipo_movimiento === 'egreso')
+  const ingresos = movimientos.filter((m) => m.tipo_movimiento === 'ingreso')
 
   // ── cálculos ─────────────────────────────────────────────────────────────────
 
@@ -57,15 +50,15 @@ export default function FinanzasCasa() {
     + (saldos?.efectivo ?? 0) + (saldos?.cuenta_dni ?? 0)
 
   const ingresosPendientesARS = ingresos
-    .filter((i) => !i.cobrado && i.moneda === 'ars')
+    .filter((i) => !i.resuelto && i.moneda === 'ars')
     .reduce((s, i) => s + i.monto, 0)
 
   const ingresosPendientesUSD = ingresos
-    .filter((i) => !i.cobrado && i.moneda === 'usd')
+    .filter((i) => !i.resuelto && i.moneda === 'usd')
     .reduce((s, i) => s + i.monto, 0)
 
   const gastosPendientesARS = gastos
-    .filter((g) => !g.pagado)
+    .filter((g) => !g.resuelto)
     .reduce((s, g) => s + g.monto, 0)
 
   const totalIngresosARS   = ingresos.filter((i) => i.moneda === 'ars').reduce((s, i) => s + i.monto, 0)
@@ -79,32 +72,27 @@ export default function FinanzasCasa() {
 
   // ── acciones ─────────────────────────────────────────────────────────────────
 
-  async function toggleGasto(g) {
-    const nuevo = !g.pagado
-    setGastos((prev) => prev.map((x) => x.id === g.id ? { ...x, pagado: nuevo } : x))
-    const { error: err } = await actualizarPagadoGasto(g.id, nuevo)
-    if (err) setGastos((prev) => prev.map((x) => x.id === g.id ? { ...x, pagado: g.pagado } : x))
+  async function toggleResuelto(m) {
+    const nuevo = !m.resuelto
+    setMovimientos((prev) => prev.map((x) => x.id === m.id ? { ...x, resuelto: nuevo } : x))
+    const { error: err } = await actualizarResueltoMovimiento(m.id, nuevo)
+    if (err) setMovimientos((prev) => prev.map((x) => x.id === m.id ? { ...x, resuelto: m.resuelto } : x))
   }
 
-  async function toggleIngreso(i) {
-    const nuevo = !i.cobrado
-    setIngresos((prev) => prev.map((x) => x.id === i.id ? { ...x, cobrado: nuevo } : x))
-    const { error: err } = await actualizarCobradoIngreso(i.id, nuevo)
-    if (err) setIngresos((prev) => prev.map((x) => x.id === i.id ? { ...x, cobrado: i.cobrado } : x))
+  async function eliminar(id) {
+    setEliminando(id)
+    const { error: err } = await eliminarMovimiento(id)
+    if (!err) setMovimientos((prev) => prev.filter((x) => x.id !== id))
+    setEliminando(null)
   }
 
-  async function eliminarGasto(id) {
-    setEliminandoG(id)
-    const { error: err } = await eliminarGastoService(id)
-    if (!err) setGastos((prev) => prev.filter((x) => x.id !== id))
-    setEliminandoG(null)
-  }
-
-  async function eliminarIngreso(id) {
-    setEliminandoI(id)
-    const { error: err } = await eliminarIngresoService(id)
-    if (!err) setIngresos((prev) => prev.filter((x) => x.id !== id))
-    setEliminandoI(null)
+  function onGuardarMovimiento(m) {
+    setMovimientos((prev) => {
+      const existe = prev.find((x) => x.id === m.id)
+      return existe ? prev.map((x) => x.id === m.id ? m : x) : [...prev, m]
+    })
+    setModalNuevo(null)
+    setEditando(null)
   }
 
   if (loading) return (
@@ -213,14 +201,14 @@ export default function FinanzasCasa() {
               {
                 label:   'Total en pesos',
                 value:   formatARS(totalPesos),
-                sub:     `${ingresos.filter(i => !i.cobrado && i.moneda==='ars').length} freelance pendiente${ingresos.filter(i=>!i.cobrado&&i.moneda==='ars').length!==1?'s':''}`,
+                sub:     `${ingresos.filter(i => !i.resuelto && i.moneda==='ars').length} freelance pendiente${ingresos.filter(i=>!i.resuelto&&i.moneda==='ars').length!==1?'s':''}`,
                 accent:  'border-blue-100',
               },
               {
                 label:   'Gastos fijos del mes',
                 value:   formatARS(totalGastosARS),
-                sub:     `${gastos.filter(g=>!g.pagado).length} pendiente${gastos.filter(g=>!g.pagado).length!==1?'s':''}`,
-                accent:  gastos.filter(g=>!g.pagado).length > 0 ? 'border-amber-200' : 'border-green-100',
+                sub:     `${gastos.filter(g=>!g.resuelto).length} pendiente${gastos.filter(g=>!g.resuelto).length!==1?'s':''}`,
+                accent:  gastos.filter(g=>!g.resuelto).length > 0 ? 'border-amber-200' : 'border-green-100',
               },
               {
                 label:   'USD proyectado fin de mes',
@@ -247,7 +235,7 @@ export default function FinanzasCasa() {
           <div className="space-y-3">
             <div className="flex items-center justify-between">
               <h2 className="text-sm font-semibold text-gray-500 uppercase tracking-wide">Gastos fijos</h2>
-              <button onClick={() => setModalGasto(true)}
+              <button onClick={() => setModalNuevo('egreso')}
                 className="flex items-center gap-1 text-xs text-blue-600 hover:text-blue-700 font-medium transition-colors">
                 <svg className="h-3.5 w-3.5" viewBox="0 0 20 20" fill="currentColor">
                   <path d="M10.75 4.75a.75.75 0 00-1.5 0v4.5h-4.5a.75.75 0 000 1.5h4.5v4.5a.75.75 0 001.5 0v-4.5h4.5a.75.75 0 000-1.5h-4.5v-4.5z" />
@@ -274,7 +262,7 @@ export default function FinanzasCasa() {
                   </thead>
                   <tbody className="divide-y divide-gray-100">
                     {gastos.map((g) => (
-                      <tr key={g.id} className={g.pagado ? 'hover:bg-gray-50' : 'bg-amber-50/30 hover:bg-amber-50/50'}>
+                      <tr key={g.id} className={g.resuelto ? 'hover:bg-gray-50' : 'bg-amber-50/30 hover:bg-amber-50/50'}>
                         <td className="px-4 py-2.5 text-sm text-gray-800">{g.nombre}</td>
                         <td className="px-4 py-2.5 text-sm font-semibold tabular-nums text-gray-800 text-right">
                           {formatARS(g.monto)}
@@ -283,22 +271,22 @@ export default function FinanzasCasa() {
                           {g.vencimiento_dia ? `día ${g.vencimiento_dia}` : '—'}
                         </td>
                         <td className="px-4 py-2.5 text-center">
-                          <button onClick={() => toggleGasto(g)}
+                          <button onClick={() => toggleResuelto(g)}
                             className={`inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-xs font-semibold transition-colors ${
-                              g.pagado
+                              g.resuelto
                                 ? 'bg-green-100 text-green-700 hover:bg-green-200'
                                 : 'bg-amber-100 text-amber-700 hover:bg-amber-200'
                             }`}>
-                            {g.pagado ? '✓ Pagado' : 'Pendiente'}
+                            {g.resuelto ? '✓ Pagado' : 'Pendiente'}
                           </button>
                         </td>
                         <td className="px-4 py-2.5">
                           <div className="flex items-center gap-1">
-                            <button onClick={() => setEditandoG(g)} title="Editar"
+                            <button onClick={() => setEditando(g)} title="Editar"
                               className="text-gray-300 hover:text-blue-400 transition-colors">
                               {iconEdit}
                             </button>
-                            <button onClick={() => eliminarGasto(g.id)} disabled={eliminandoG === g.id}
+                            <button onClick={() => eliminar(g.id)} disabled={eliminando === g.id}
                               className="text-gray-300 hover:text-red-400 transition-colors disabled:opacity-40">
                               {iconTrash}
                             </button>
@@ -314,7 +302,7 @@ export default function FinanzasCasa() {
                         {formatARS(totalGastosARS)}
                       </td>
                       <td colSpan={3} className="px-4 py-2.5 text-xs text-gray-400 text-center">
-                        {gastos.filter(g=>g.pagado).length}/{gastos.length} pagados
+                        {gastos.filter(g=>g.resuelto).length}/{gastos.length} pagados
                       </td>
                     </tr>
                   </tfoot>
@@ -327,7 +315,7 @@ export default function FinanzasCasa() {
           <div className="space-y-3">
             <div className="flex items-center justify-between">
               <h2 className="text-sm font-semibold text-gray-500 uppercase tracking-wide">Ingresos</h2>
-              <button onClick={() => setModalIngreso(true)}
+              <button onClick={() => setModalNuevo('ingreso')}
                 className="flex items-center gap-1 text-xs text-blue-600 hover:text-blue-700 font-medium transition-colors">
                 <svg className="h-3.5 w-3.5" viewBox="0 0 20 20" fill="currentColor">
                   <path d="M10.75 4.75a.75.75 0 00-1.5 0v4.5h-4.5a.75.75 0 000 1.5h4.5v4.5a.75.75 0 001.5 0v-4.5h4.5a.75.75 0 000-1.5h-4.5v-4.5z" />
@@ -353,11 +341,11 @@ export default function FinanzasCasa() {
                   </thead>
                   <tbody className="divide-y divide-gray-100">
                     {ingresos.map((i) => (
-                      <tr key={i.id} className={i.cobrado ? 'hover:bg-gray-50' : 'bg-blue-50/20 hover:bg-blue-50/40'}>
+                      <tr key={i.id} className={i.resuelto ? 'hover:bg-gray-50' : 'bg-blue-50/20 hover:bg-blue-50/40'}>
                         <td className="px-4 py-2.5">
                           <div className="text-sm text-gray-800">{i.nombre}</div>
                           <div className="text-xs text-gray-400">
-                            {i.tipo === 'sueldo_usd' ? 'Sueldo USD' : 'Freelance'}
+                            {i.categoria === 'sueldo_usd' ? 'Sueldo USD' : 'Freelance'}
                           </div>
                         </td>
                         <td className="px-4 py-2.5 text-sm font-semibold tabular-nums text-right">
@@ -371,22 +359,22 @@ export default function FinanzasCasa() {
                           )}
                         </td>
                         <td className="px-4 py-2.5 text-center">
-                          <button onClick={() => toggleIngreso(i)}
+                          <button onClick={() => toggleResuelto(i)}
                             className={`inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-xs font-semibold transition-colors ${
-                              i.cobrado
+                              i.resuelto
                                 ? 'bg-green-100 text-green-700 hover:bg-green-200'
                                 : 'bg-blue-100 text-blue-700 hover:bg-blue-200'
                             }`}>
-                            {i.cobrado ? '✓ Cobrado' : 'Pendiente'}
+                            {i.resuelto ? '✓ Cobrado' : 'Pendiente'}
                           </button>
                         </td>
                         <td className="px-4 py-2.5">
                           <div className="flex items-center gap-1">
-                            <button onClick={() => setEditandoI(i)} title="Editar"
+                            <button onClick={() => setEditando(i)} title="Editar"
                               className="text-gray-300 hover:text-blue-400 transition-colors">
                               {iconEdit}
                             </button>
-                            <button onClick={() => eliminarIngreso(i.id)} disabled={eliminandoI === i.id}
+                            <button onClick={() => eliminar(i.id)} disabled={eliminando === i.id}
                               className="text-gray-300 hover:text-red-400 transition-colors disabled:opacity-40">
                               {iconTrash}
                             </button>
@@ -405,7 +393,7 @@ export default function FinanzasCasa() {
                         )}
                       </td>
                       <td colSpan={2} className="px-4 py-2.5 text-xs text-gray-400 text-center">
-                        {ingresos.filter(i=>i.cobrado).length}/{ingresos.length} cobrados
+                        {ingresos.filter(i=>i.resuelto).length}/{ingresos.length} cobrados
                       </td>
                     </tr>
                   </tfoot>
@@ -419,20 +407,15 @@ export default function FinanzasCasa() {
 
       {/* Modales */}
       {modalSaldos && <ModalSaldos saldos={saldos} onGuardar={(d) => { setSaldos(d); setModalSaldos(false) }} onCerrar={() => setModalSaldos(false)} />}
-      {(modalGasto || editandoG) && <ModalGasto mes={mes} item={editandoG}
-        onGuardar={(d) => {
-          if (editandoG) setGastos((p) => p.map((x) => x.id === d.id ? d : x))
-          else setGastos((p) => [...p, d])
-          setModalGasto(false); setEditandoG(null)
-        }}
-        onCerrar={() => { setModalGasto(false); setEditandoG(null) }} />}
-      {(modalIngreso || editandoI) && <ModalIngreso mes={mes} item={editandoI}
-        onGuardar={(d) => {
-          if (editandoI) setIngresos((p) => p.map((x) => x.id === d.id ? d : x))
-          else setIngresos((p) => [...p, d])
-          setModalIngreso(false); setEditandoI(null)
-        }}
-        onCerrar={() => { setModalIngreso(false); setEditandoI(null) }} />}
+      {(modalNuevo || editando) && (
+        <ModalMovimiento
+          mes={mes}
+          item={editando}
+          tipoInicial={modalNuevo}
+          onGuardar={onGuardarMovimiento}
+          onCerrar={() => { setModalNuevo(null); setEditando(null) }}
+        />
+      )}
     </>
   )
 }

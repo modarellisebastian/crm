@@ -2,10 +2,6 @@ import { supabase } from '../lib/supabase'
 
 const SELECT_COMPLETO = '*, leads(nombre, rubro, ciudad), payments(*), servicios(*)'
 
-export async function fetchClientesParaSelect() {
-  return supabase.from('clients').select('id, nombre').order('nombre')
-}
-
 export async function fetchLeadIdsConCliente() {
   return supabase.from('clients').select('lead_id').not('lead_id', 'is', null)
 }

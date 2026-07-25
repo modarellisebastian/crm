@@ -44,16 +44,6 @@ const NEGOCIO_LINKS = [
     ),
   },
   {
-    to: '/finanzas',
-    label: 'Finanzas',
-    icon: (
-      <svg viewBox="0 0 20 20" fill="currentColor" className="w-[18px] h-[18px] shrink-0">
-        <path fillRule="evenodd" d="M1 4a1 1 0 0 1 1-1h16a1 1 0 0 1 1 1v8a1 1 0 0 1-1 1H2a1 1 0 0 1-1-1V4Zm12 4a3 3 0 1 1-6 0 3 3 0 0 1 6 0ZM4 9a1 1 0 1 0 0-2 1 1 0 0 0 0 2Zm13-1a1 1 0 1 1-2 0 1 1 0 0 1 2 0Z" clipRule="evenodd" />
-        <path d="M3 16.5a1 1 0 0 1 1-1h12a1 1 0 1 1 0 2H4a1 1 0 0 1-1-1Z" />
-      </svg>
-    ),
-  },
-  {
     to: '/scraper',
     label: 'Scraper',
     icon: (

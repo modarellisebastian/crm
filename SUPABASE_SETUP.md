@@ -40,6 +40,7 @@ El esquema completo vive versionado en `supabase/migrations/`, en orden:
 | `20260725100005_casa_finanzas.sql` | Tablas de finanzas del hogar: `casa_saldos`, `casa_gastos_fijos`, `casa_ingresos` + RLS |
 | `20260725100006_harden_casa_rls.sql` | Elimina las políticas laxas históricas de `casa_*` (sin restricción de rol) |
 | `20260725100007_scraper_config_generalizacion.sql` | Agrega a `scraper_config` las columnas `excluir_keywords`, `pais`, `idioma` y los umbrales de scoring, para sacar del código el hardcodeo específico del nicho de gimnasios |
+| `20260725100008_casa_movimientos_unificados.sql` | ⚠️ Destructiva: unifica `casa_ingresos` + `casa_gastos_fijos` en una sola tabla `casa_movimientos` (campo `tipo_movimiento`), migra los datos existentes y elimina las dos tablas viejas |
 
 **Con Supabase CLI** (recomendado):
 
@@ -77,7 +78,7 @@ El frontend ya implementa el login con estas credenciales (`frontend/src/pages/L
 Ir a **Table Editor** y confirmar que aparecen:
 
 - `leads`, `clients`, `payments`, `servicios`, `scraper_config`
-- `casa_saldos`, `casa_gastos_fijos`, `casa_ingresos`
+- `casa_saldos`, `casa_movimientos`
 
 ---
 
