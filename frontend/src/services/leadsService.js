@@ -45,18 +45,6 @@ export async function fetchUltimosLeads(limite) {
   return data ?? []
 }
 
-export async function fetchLeadsParaPipeline() {
-  return supabase
-    .from('leads')
-    .select('id, nombre, rubro, ciudad, estado, notas')
-    .neq('estado', null)
-    .order('created_at', { ascending: true })
-}
-
-export async function actualizarEstadoLead(id, estado) {
-  return supabase.from('leads').update({ estado }).eq('id', id)
-}
-
 export async function fetchColaDeHoy(limite = 60) {
   return supabase
     .from('leads')
