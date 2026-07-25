@@ -1,5 +1,8 @@
 import { useEffect, useState } from 'react'
-import { supabase } from '../lib/supabase'
+import Modal from '../components/ui/Modal'
+import Tooltip from '../components/ui/Tooltip'
+import { fetchPaymentsConCliente, crearPayment, actualizarPagado, eliminarPayment } from '../services/paymentsService'
+import { fetchClientesParaSelect } from '../services/clientsService'
 
 // ─── helpers ──────────────────────────────────────────────────────────────────
 
@@ -47,25 +50,6 @@ const TIPO_DOT = {
   soporte:       'bg-teal-400',
 }
 
-// ─── Tooltip ──────────────────────────────────────────────────────────────────
-
-function Tooltip({ text, wide }) {
-  return (
-    <span className="group relative inline-flex items-center">
-      <svg
-        className="w-3.5 h-3.5 text-gray-300 hover:text-gray-500 cursor-help transition-colors shrink-0"
-        viewBox="0 0 20 20" fill="currentColor"
-      >
-        <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zM8.94 6.94a.75.75 0 11-1.061-1.061 3 3 0 112.871 5.026v.345a.75.75 0 01-1.5 0v-.5c0-.72.57-1.172 1.081-1.287A1.5 1.5 0 108.94 6.94zM10 15a1 1 0 100-2 1 1 0 000 2z" clipRule="evenodd" />
-      </svg>
-      <span className={`pointer-events-none absolute bottom-full left-1/2 -translate-x-1/2 mb-2 ${wide ? 'w-64' : 'w-52'} rounded-xl bg-gray-900 px-3 py-2 text-xs leading-relaxed text-white opacity-0 group-hover:opacity-100 transition-opacity z-30 text-center shadow-lg`}>
-        {text}
-        <span className="absolute top-full left-1/2 -translate-x-1/2 border-4 border-transparent border-t-gray-900" />
-      </span>
-    </span>
-  )
-}
-
 // ─── TipoBadge ────────────────────────────────────────────────────────────────
 
 function TipoBadge({ tipo }) {
@@ -100,34 +84,21 @@ function ModalNuevoCobro({ clientes, onGuardar, onCerrar }) {
     if (!form.fecha_cobro) { setError('Ingresá la fecha de cobro.'); return }
 
     setGuardando(true)
-    const { data, error: err } = await supabase.from('payments')
-      .insert({
-        client_id:   form.client_id,
-        tipo:        form.tipo,
-        descripcion: form.descripcion || null,
-        monto:       Number(form.monto),
-        fecha_cobro: form.fecha_cobro,
-        pagado:      form.pagado,
-      })
-      .select('*, clients(nombre)')
-      .single()
+    const { data, error: err } = await crearPayment({
+      client_id:   form.client_id,
+      tipo:        form.tipo,
+      descripcion: form.descripcion || null,
+      monto:       Number(form.monto),
+      fecha_cobro: form.fecha_cobro,
+      pagado:      form.pagado,
+    })
 
     if (err) { setError(err.message); setGuardando(false); return }
     onGuardar(data)
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
-      <div className="bg-white rounded-2xl shadow-xl w-full max-w-md">
-        <div className="flex items-center justify-between px-6 pt-5 pb-4 border-b border-gray-100">
-          <h2 className="text-base font-semibold text-gray-800">Nuevo cobro</h2>
-          <button onClick={onCerrar} className="text-gray-400 hover:text-gray-600 transition-colors">
-            <svg className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
-              <path d="M6.28 5.22a.75.75 0 00-1.06 1.06L8.94 10l-3.72 3.72a.75.75 0 101.06 1.06L10 11.06l3.72 3.72a.75.75 0 101.06-1.06L11.06 10l3.72-3.72a.75.75 0 00-1.06-1.06L10 8.94 6.28 5.22z" />
-            </svg>
-          </button>
-        </div>
-
+    <Modal title="Nuevo cobro" onClose={onCerrar}>
         <form onSubmit={handleSubmit} className="px-6 py-5 space-y-4">
           {/* Cliente */}
           <div className="space-y-1.5">
@@ -212,8 +183,7 @@ function ModalNuevoCobro({ clientes, onGuardar, onCerrar }) {
             </button>
           </div>
         </form>
-      </div>
-    </div>
+    </Modal>
   )
 }
 
@@ -233,12 +203,8 @@ export default function Finanzas() {
   useEffect(() => {
     async function fetchData() {
       const [{ data: pays, error: e1 }, { data: clis, error: e2 }] = await Promise.all([
-        supabase.from('payments')
-          .select('*, clients(nombre)')
-          .order('fecha_cobro', { ascending: false }),
-        supabase.from('clients')
-          .select('id, nombre')
-          .order('nombre'),
+        fetchPaymentsConCliente(),
+        fetchClientesParaSelect(),
       ])
       if (e1 || e2) { setError((e1 || e2).message) }
       else { setPayments(pays); setClientes(clis) }
@@ -265,13 +231,13 @@ export default function Finanzas() {
   async function togglePagado(payment) {
     const nuevo = !payment.pagado
     setPayments((prev) => prev.map((p) => p.id === payment.id ? { ...p, pagado: nuevo } : p))
-    const { error: err } = await supabase.from('payments').update({ pagado: nuevo }).eq('id', payment.id)
+    const { error: err } = await actualizarPagado(payment.id, nuevo)
     if (err) setPayments((prev) => prev.map((p) => p.id === payment.id ? { ...p, pagado: payment.pagado } : p))
   }
 
   async function eliminar(id) {
     setEliminando(id)
-    const { error: err } = await supabase.from('payments').delete().eq('id', id)
+    const { error: err } = await eliminarPayment(id)
     if (!err) setPayments((prev) => prev.filter((p) => p.id !== id))
     setEliminando(null)
   }

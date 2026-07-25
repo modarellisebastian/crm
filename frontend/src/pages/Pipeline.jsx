@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { DragDropContext, Droppable, Draggable } from '@hello-pangea/dnd'
-import { supabase } from '../lib/supabase'
+import { fetchLeadsParaPipeline, actualizarEstadoLead } from '../services/leadsService'
 
 // Columnas principales del funnel (en orden)
 const COLUMNAS_FUNNEL = [
@@ -104,11 +104,7 @@ export default function Pipeline() {
 
   useEffect(() => {
     async function fetchLeads() {
-      const { data, error } = await supabase
-        .from('leads')
-        .select('id, nombre, rubro, ciudad, estado, notas')
-        .neq('estado', null)
-        .order('created_at', { ascending: true })
+      const { data, error } = await fetchLeadsParaPipeline()
 
       if (error) {
         setError(error.message)
@@ -147,10 +143,7 @@ export default function Pipeline() {
     })
 
     // Persistir en Supabase
-    const { error } = await supabase
-      .from('leads')
-      .update({ estado: destinoId })
-      .eq('id', draggableId)
+    const { error } = await actualizarEstadoLead(draggableId, destinoId)
 
     if (error) {
       // Revertir si falla

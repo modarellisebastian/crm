@@ -1,5 +1,14 @@
 import { useEffect, useState } from 'react'
-import { supabase } from '../lib/supabase'
+import {
+  fetchContactadosParaAutoTransicion,
+  marcarLeadsSinRespuesta,
+  countLeadsTotales,
+  countLeadsDesde,
+  countLeadsEnEstados,
+  countLeadsCerradosEnRango,
+  fetchUltimosLeads,
+} from '../services/leadsService'
+import { fetchMontosFacturadosEnRango, fetchMontosPendientes } from '../services/paymentsService'
 
 // ─── helpers ──────────────────────────────────────────────────────────────────
 
@@ -114,12 +123,9 @@ export default function Dashboard() {
   useEffect(() => {
     // Auto-transición: contactado → sin_respuesta después de 72hs
     async function autoTransicion() {
-      const { data: contactados } = await supabase
-        .from('leads')
-        .select('id, fecha_ultimo_movimiento, created_at')
-        .eq('estado', 'contactado')
+      const contactados = await fetchContactadosParaAutoTransicion()
 
-      if (!contactados?.length) return
+      if (!contactados.length) return
 
       const limite = Date.now() - 72 * 3600 * 1000
       const stale = contactados.filter((l) => {
@@ -128,10 +134,7 @@ export default function Dashboard() {
       })
 
       if (stale.length > 0) {
-        await supabase
-          .from('leads')
-          .update({ estado: 'sin_respuesta', fecha_ultimo_movimiento: new Date().toISOString() })
-          .in('id', stale.map((l) => l.id))
+        await marcarLeadsSinRespuesta(stale.map((l) => l.id))
         setAutoMovidos(stale.length)
       }
     }
@@ -151,51 +154,16 @@ export default function Dashboard() {
         resCerrados,
         resMRR,
         resPendiente,
-        resUltimos,
       ] = await Promise.all([
-        // Leads totales
-        supabase.from('leads').select('*', { count: 'exact', head: true }),
-
-        // Leads nuevos hoy
-        supabase
-          .from('leads')
-          .select('*', { count: 'exact', head: true })
-          .gte('created_at', `${hoy}T00:00:00`),
-
-        // En pipeline (contactado, demo_enviado, negociando)
-        supabase
-          .from('leads')
-          .select('*', { count: 'exact', head: true })
-          .in('estado', ['contactado', 'demo_enviado', 'negociando']),
-
-        // Cerrados este mes
-        supabase
-          .from('leads')
-          .select('*', { count: 'exact', head: true })
-          .eq('estado', 'cerrado')
-          .gte('fecha_ultimo_movimiento', inicioMes)
-          .lte('fecha_ultimo_movimiento', finMes),
-
-        // Facturado este mes: todos los pagos del mes
-        supabase
-          .from('payments')
-          .select('monto')
-          .gte('fecha_cobro', hoy.slice(0, 7) + '-01')
-          .lte('fecha_cobro', finMes.split('T')[0]),
-
-        // Pendiente de cobro
-        supabase
-          .from('payments')
-          .select('monto')
-          .eq('pagado', false),
-
-        // Últimos 5 leads
-        supabase
-          .from('leads')
-          .select('id, nombre, rubro, ciudad, estado')
-          .order('created_at', { ascending: false })
-          .limit(5),
+        countLeadsTotales(),
+        countLeadsDesde(`${hoy}T00:00:00`),
+        countLeadsEnEstados(['contactado', 'demo_enviado', 'negociando']),
+        countLeadsCerradosEnRango(inicioMes, finMes),
+        fetchMontosFacturadosEnRango(hoy.slice(0, 7) + '-01', finMes.split('T')[0]),
+        fetchMontosPendientes(),
       ])
+
+      const ultimosLeads = await fetchUltimosLeads(5)
 
       const mrr = (resMRR.data ?? []).reduce((s, p) => s + (p.monto ?? 0), 0)  // ahora = facturado este mes
       const pendiente = (resPendiente.data ?? []).reduce((s, p) => s + (p.monto ?? 0), 0)
@@ -208,7 +176,7 @@ export default function Dashboard() {
         mrr,
         pendiente,
       })
-      setUltimosLeads(resUltimos.data ?? [])
+      setUltimosLeads(ultimosLeads)
       setLoading(false)
     }
 

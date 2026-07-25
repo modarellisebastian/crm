@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
-import { supabase } from '../lib/supabase'
+import { fetchLeadsParaReportes } from '../services/leadsService'
+import { fetchLeadIdsConCliente } from '../services/clientsService'
 
 const PERIODOS = [
   { key: 'hoy', label: 'Hoy' },
@@ -55,13 +56,8 @@ export default function Reportes() {
     async function fetchLeads() {
       setLoading(true)
       const [{ data }, { data: clientes }] = await Promise.all([
-        supabase
-          .from('leads')
-          .select('id, estado, ciudad, prioridad, created_at, fecha_ultimo_movimiento, whatsapp, instagram, tiene_web'),
-        supabase
-          .from('clients')
-          .select('lead_id')
-          .not('lead_id', 'is', null),
+        fetchLeadsParaReportes(),
+        fetchLeadIdsConCliente(),
       ])
       setLeads(data ?? [])
       setClienteLeadIds(new Set((clientes ?? []).map((c) => c.lead_id)))

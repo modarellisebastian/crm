@@ -1,5 +1,5 @@
 import { useEffect, useState, useCallback } from 'react'
-import { supabase } from '../lib/supabase'
+import { fetchColaDeHoy, marcarLeadContactado, marcarLeadDescartado } from '../services/leadsService'
 
 // ─── Rate limiter (localStorage) ─────────────────────────────────────────────
 const LIMITE_POR_HORA = 5
@@ -195,13 +195,7 @@ export default function Cola() {
 
   const fetchLeads = useCallback(async () => {
     setLoading(true)
-    const { data, error } = await supabase
-      .from('leads')
-      .select('id, nombre, ciudad, rubro, whatsapp, instagram, score, prioridad, estado, created_at')
-      .eq('estado', 'nuevo')
-      .not('whatsapp', 'is', null)
-      .order('score', { ascending: false })
-      .limit(60)
+    const { data, error } = await fetchColaDeHoy(60)
 
     if (!error && data) {
       setLeads(data)
@@ -223,19 +217,13 @@ export default function Cola() {
     const timestamps = registrarEnvio()
     setEnviados(timestamps.length)
 
-    await supabase
-      .from('leads')
-      .update({ estado: 'contactado', fecha_contacto: new Date().toISOString(), fecha_ultimo_movimiento: new Date().toISOString() })
-      .eq('id', leadId)
+    await marcarLeadContactado(leadId)
 
     setLeads((prev) => prev.filter((l) => l.id !== leadId))
   }
 
   async function handleDescartar(leadId) {
-    await supabase
-      .from('leads')
-      .update({ estado: 'descartado', fecha_ultimo_movimiento: new Date().toISOString() })
-      .eq('id', leadId)
+    await marcarLeadDescartado(leadId)
 
     setLeads((prev) => prev.filter((l) => l.id !== leadId))
   }
