@@ -56,36 +56,40 @@ export const CAMPOS_TEXTO = [
   { key: 'facebook',  label: 'Facebook' },
 ]
 
-export const WA_TEMPLATES = (nombre) => [
-  {
-    key: 'primer_contacto',
-    label: 'Primer contacto',
-    emoji: '👋',
-    // variantes: se elige una al azar al hacer click para evitar bloqueos de WA
-    variantes: [
-      `Hola! Soy Sebastián. Tengo una app para administrar gimnasios que ya están usando varios gyms en Argentina, y quería ver si les podía ser útil a ustedes también. ¿Este es ${nombre ?? 'el gimnasio'}?`,
-      `Buenas! Mi nombre es Sebastián. Desarrollé una app de gestión para gimnasios y varios gyms del país ya la están usando. ¿Puedo hablar con alguien de ${nombre ?? 'el gimnasio'}?`,
-      `Hola, cómo están? Soy Sebastián. Trabajo con gimnasios de Argentina ofreciéndoles una app de administración. ¿Este es el contacto de ${nombre ?? 'el gimnasio'}?`,
-      `Buen día! Soy Sebastián. Tengo una solución digital para gimnasios que ya usan varios en todo el país. ¿Hablo con alguien de ${nombre ?? 'el gimnasio'}?`,
-      `Hola! Sebastián acá. Estoy trabajando con gimnasios de todo el país con una app de gestión y administración. ¿Este es ${nombre ?? 'el gimnasio'}?`,
-    ],
-  },
-  {
-    key: 'seguimiento',
-    label: 'Seguimiento',
-    emoji: '🔄',
-    msg: `Hola! Soy Sebastián, te escribí hace unos días sobre ${nombre ?? 'el gimnasio'}. ¿Pudiste ver lo que te mandé?`,
-  },
-  {
-    key: 'propuesta',
-    label: 'Propuesta web',
-    emoji: '💻',
-    msg: `Hola! Soy Sebastián, me especializo en páginas web para gimnasios. Quería mostrarte algo para ${nombre ?? 'el gimnasio'}, ¿tenés un momento?`,
-  },
-  {
-    key: 'cierre',
-    label: 'Cierre / trial',
-    emoji: '🚀',
-    msg: `Hola! Soy Sebastián. Quería saber si tuviste oportunidad de revisar la propuesta para ${nombre ?? 'el gimnasio'}. Podemos arrancar con una prueba sin costo para que lo veas funcionando 🙌`,
-  },
-]
+export const WA_TEMPLATES = (nombre, rubro) => {
+  const negocio = nombre ?? (rubro ? `su ${rubro.toLowerCase()}` : 'su negocio')
+
+  return [
+    {
+      key: 'primer_contacto',
+      label: 'Primer contacto',
+      emoji: '👋',
+      // variantes: se elige una al azar al hacer click para evitar bloqueos de WA
+      variantes: [
+        `Hola! Soy Sebastián. Tengo una solución digital que ya están usando varios negocios como el de ustedes, y quería ver si les podía ser útil también. ¿Este es ${negocio}?`,
+        `Buenas! Mi nombre es Sebastián. Desarrollo soluciones digitales para negocios y varios ya la están usando. ¿Puedo hablar con alguien de ${negocio}?`,
+        `Hola, cómo están? Soy Sebastián. Trabajo con negocios locales ofreciéndoles herramientas digitales de gestión. ¿Este es el contacto de ${negocio}?`,
+        `Buen día! Soy Sebastián. Tengo una solución digital que ya usan varios negocios similares. ¿Hablo con alguien de ${negocio}?`,
+        `Hola! Sebastián acá. Estoy trabajando con negocios locales con herramientas de gestión digital. ¿Este es ${negocio}?`,
+      ],
+    },
+    {
+      key: 'seguimiento',
+      label: 'Seguimiento',
+      emoji: '🔄',
+      msg: `Hola! Soy Sebastián, te escribí hace unos días sobre ${negocio}. ¿Pudiste ver lo que te mandé?`,
+    },
+    {
+      key: 'propuesta',
+      label: 'Propuesta web',
+      emoji: '💻',
+      msg: `Hola! Soy Sebastián, me especializo en páginas web y sistemas de gestión para negocios. Quería mostrarte algo para ${negocio}, ¿tenés un momento?`,
+    },
+    {
+      key: 'cierre',
+      label: 'Cierre / trial',
+      emoji: '🚀',
+      msg: `Hola! Soy Sebastián. Quería saber si tuviste oportunidad de revisar la propuesta para ${negocio}. Podemos arrancar con una prueba sin costo para que lo veas funcionando 🙌`,
+    },
+  ]
+}

@@ -50,6 +50,10 @@ npm run dev
 
 El frontend requiere login (Supabase Auth, email/password). Crear el usuario manualmente en el dashboard de Supabase (**Authentication → Users → Add user**) — ver `SUPABASE_SETUP.md` para el detalle. Sin sesión iniciada, cualquier ruta del CRM redirige a `/login`.
 
+### Scraper de leads: cualquier rubro, no solo gimnasios
+
+El rubro a buscar es texto libre (con una lista de sugerencias rápidas, más la opción "Otro"). País e idioma de búsqueda también son configurables desde el formulario (Argentina/español por default). Los criterios de exclusión de cadenas/franquicias y los umbrales de scoring ya no están hardcodeados en el código: se configuran por combinación de `ciudad`+`rubro` en la tabla `scraper_config` (columnas `excluir_keywords`, `reviews_sweet_spot_min/max`, `reviews_grande_max`) — si no hay configuración para una combinación nueva, se usan valores por defecto neutros (sin exclusiones).
+
 ## Variables de entorno
 
 ### Frontend (`frontend/.env`)
@@ -59,6 +63,7 @@ El frontend requiere login (Supabase Auth, email/password). Crear el usuario man
 | `VITE_SUPABASE_URL` | URL del proyecto Supabase |
 | `VITE_SUPABASE_ANON_KEY` | Clave anon/public de Supabase |
 | `VITE_SCRAPER_URL` | URL del microservicio scraper (ej. `http://localhost:3005`) |
+| `VITE_APP_NAME` | Nombre que se muestra en el sidebar (default: "Mi CRM") |
 
 ### Scraper (`scraper/.env`)
 

@@ -2,6 +2,8 @@ import { NavLink, useNavigate } from 'react-router-dom'
 import { useState } from 'react'
 import { supabase } from '../lib/supabase'
 
+const APP_NAME = import.meta.env.VITE_APP_NAME || 'Mi CRM'
+
 const LINKS = [
   {
     to: '/',
@@ -120,7 +122,7 @@ function Sidebar() {
       <div className={`flex items-center h-14 border-b border-gray-100 px-3 shrink-0 ${collapsed ? 'justify-center' : 'justify-between'}`}>
         {!collapsed && (
           <span className="flex-1 text-sm font-bold text-gray-900 tracking-tight truncate mr-2">
-            GymCRM
+            {APP_NAME}
           </span>
         )}
         <button

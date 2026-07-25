@@ -39,6 +39,7 @@ El esquema completo vive versionado en `supabase/migrations/`, en orden:
 | `20260725100004_payments_descripcion.sql` | Campo `descripcion` en `payments` |
 | `20260725100005_casa_finanzas.sql` | Tablas de finanzas del hogar: `casa_saldos`, `casa_gastos_fijos`, `casa_ingresos` + RLS |
 | `20260725100006_harden_casa_rls.sql` | Elimina las políticas laxas históricas de `casa_*` (sin restricción de rol) |
+| `20260725100007_scraper_config_generalizacion.sql` | Agrega a `scraper_config` las columnas `excluir_keywords`, `pais`, `idioma` y los umbrales de scoring, para sacar del código el hardcodeo específico del nicho de gimnasios |
 
 **Con Supabase CLI** (recomendado):
 
@@ -91,6 +92,21 @@ Ir a **Table Editor** y confirmar que aparecen:
 - El scraper usa la `service_role` key, que omite RLS completamente. Nunca exponer esa clave en el código del frontend.
 
 ---
+
+## Configurar el scraper para un rubro específico (opcional)
+
+Por defecto, una combinación nueva de `ciudad`+`rubro` no excluye ninguna cadena/franquicia y usa los umbrales de scoring genéricos. Si vas a prospectar un rubro donde ya conocés las cadenas grandes a evitar (por ejemplo, gimnasios), podés precargar la fila en `scraper_config` antes de scrapear:
+
+```sql
+INSERT INTO scraper_config (ciudad, rubro, excluir_keywords)
+VALUES ('Tandil', 'Gimnasio', ARRAY[
+  'megatlon', 'sport club', 'sportclub', 'fitness first', 'bodytech', 'body tech',
+  'gold''s gym', 'golds gym', 'snap fitness', 'planet fitness', 'equinox',
+  'american fitness', 'muscle factory', 'eko fitness', 'club atlético municipal',
+  'colsubsidio', 'world gym', 'anytime fitness', 'básico fit', 'basic fit'
+])
+ON CONFLICT (ciudad, rubro) DO UPDATE SET excluir_keywords = EXCLUDED.excluir_keywords;
+```
 
 ## Datos financieros personales (finanzas de casa)
 

@@ -1,10 +1,9 @@
 import { useState } from 'react'
 
-// { provincia, ciudades[] } — sweet spot: 50k–200k habitantes
-// Se excluyen ciudades grandes (CABA, GBA, Córdoba, Rosario, Mar del Plata, Mendoza,
-// Tucumán, Salta, Jujuy, Posadas, Corrientes, Resistencia, Neuquén, Paraná, San Juan, Formosa)
-// donde la competencia de otros vendors es alta y abundan las cadenas.
-// También se excluyen ciudades <40k donde hay muy pocos gimnasios para prospectar.
+// { provincia, ciudades[] } — ciudades intermedias de Argentina (~40k–200k habitantes),
+// un buen punto de partida para prospectar negocios locales de cualquier rubro sin la
+// alta competencia/saturación de las grandes ciudades (CABA, GBA, Córdoba, Rosario, etc.).
+// Es solo un preset de conveniencia — no limita qué ciudad se puede buscar en otro momento.
 const CIUDADES_POR_PROVINCIA = [
   {
     // Excluida del criterio "sweet spot" de gimnasios (alta competencia/cadenas),
@@ -189,8 +188,8 @@ const CIUDADES_POR_PROVINCIA = [
   },
 ]
 
-// Rubros orientados a GymApp — todos son negocios independientes
-// con gestión de socios/clientes recurrentes y pagos periódicos
+// Rubros sugeridos — punto de partida rápido, no una lista cerrada.
+// Cualquier rubro se puede escribir libremente con la opción "Otro".
 const RUBROS = [
   'Gimnasio',
   'Box CrossFit',
@@ -202,19 +201,36 @@ const RUBROS = [
   'Natación',
   'Funcional',
   'Artes marciales mixtas',
-  // Rubros para venta de webs
   'Inmobiliaria',
   'Restaurante',
 ]
+
+const OTRO_RUBRO = '__otro'
+
+const PAISES = [
+  { code: 'AR', label: 'Argentina' },
+  { code: 'ES', label: 'España' },
+  { code: 'MX', label: 'México' },
+  { code: 'CL', label: 'Chile' },
+  { code: 'CO', label: 'Colombia' },
+  { code: 'UY', label: 'Uruguay' },
+]
+
 const SCRAPER_URL = import.meta.env.VITE_SCRAPER_URL || 'http://localhost:3005'
 
 export default function Scraper() {
   const [ciudad, setCiudad] = useState('')
   const [provincia, setProvincia] = useState('')
   const [rubro, setRubro] = useState('')
+  const [rubroLibre, setRubroLibre] = useState('')
+  const [mostrarAvanzado, setMostrarAvanzado] = useState(false)
+  const [pais, setPais] = useState('AR')
+  const [idioma, setIdioma] = useState('es')
   const [cargando, setCargando] = useState(false)
   const [resultado, setResultado] = useState(null)
   const [error, setError] = useState(null)
+
+  const rubroFinal = rubro === OTRO_RUBRO ? rubroLibre.trim() : rubro
 
   function handleCiudadChange(e) {
     const val = e.target.value
@@ -232,7 +248,7 @@ export default function Scraper() {
 
   async function handleBuscar(e) {
     e.preventDefault()
-    if (!ciudad || !rubro) return
+    if (!ciudad || !rubroFinal) return
 
     setCargando(true)
     setResultado(null)
@@ -242,7 +258,7 @@ export default function Scraper() {
       const res = await fetch(`${SCRAPER_URL}/api/scrape`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ ciudad, provincia, rubro, limite: 20 }),
+        body: JSON.stringify({ ciudad, provincia, rubro: rubroFinal, limite: 20, pais, idioma }),
       })
 
       const data = await res.json()
@@ -259,7 +275,7 @@ export default function Scraper() {
     }
   }
 
-  const puedeEnviar = ciudad && rubro && !cargando
+  const puedeEnviar = ciudad && rubroFinal && !cargando
 
   return (
     <div className="max-w-lg space-y-8">
@@ -308,7 +324,57 @@ export default function Scraper() {
           >
             <option value="">Seleccioná un rubro…</option>
             {RUBROS.map((r) => <option key={r} value={r}>{r}</option>)}
+            <option value={OTRO_RUBRO}>Otro (especificar)…</option>
           </select>
+          {rubro === OTRO_RUBRO && (
+            <input
+              type="text"
+              value={rubroLibre}
+              onChange={(e) => { setRubroLibre(e.target.value); setResultado(null); setError(null) }}
+              placeholder="Ej: Veterinaria, Peluquería, Ferretería…"
+              className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 disabled:opacity-50"
+              disabled={cargando}
+            />
+          )}
+        </div>
+
+        {/* Opciones avanzadas: país/idioma */}
+        <div className="space-y-2">
+          <button
+            type="button"
+            onClick={() => setMostrarAvanzado((v) => !v)}
+            className="text-xs font-medium text-gray-400 hover:text-gray-600 transition-colors"
+          >
+            {mostrarAvanzado ? '− Ocultar opciones avanzadas' : '+ Opciones avanzadas (país / idioma)'}
+          </button>
+          {mostrarAvanzado && (
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1">
+                <label className="block text-xs font-medium text-gray-500" htmlFor="pais">País</label>
+                <select
+                  id="pais"
+                  value={pais}
+                  onChange={(e) => setPais(e.target.value)}
+                  className="w-full rounded-lg border border-gray-300 bg-white px-3 py-1.5 text-sm text-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  disabled={cargando}
+                >
+                  {PAISES.map((p) => <option key={p.code} value={p.code}>{p.label}</option>)}
+                </select>
+              </div>
+              <div className="space-y-1">
+                <label className="block text-xs font-medium text-gray-500" htmlFor="idioma">Idioma de búsqueda</label>
+                <input
+                  id="idioma"
+                  type="text"
+                  value={idioma}
+                  onChange={(e) => setIdioma(e.target.value)}
+                  placeholder="es"
+                  className="w-full rounded-lg border border-gray-300 px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  disabled={cargando}
+                />
+              </div>
+            </div>
+          )}
         </div>
 
         {/* Botón */}

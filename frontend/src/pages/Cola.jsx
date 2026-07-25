@@ -32,21 +32,27 @@ function minutosHastaProximoSlot(timestamps) {
 }
 
 // ─── Mensaje WhatsApp ─────────────────────────────────────────────────────────
+// Rubros que dictan clases/actividades — para estos el "¿siguen dando clases de X?"
+// suena natural. Para cualquier otro rubro se usa un mensaje genérico más abajo.
+const ACTIVIDAD_POR_RUBRO = {
+  'Box CrossFit':          'CrossFit',
+  'Artes marciales':       'artes marciales',
+  'Artes marciales mixtas':'MMA',
+  'Muay Thai':             'Muay Thai',
+  'Taekwondo':             'taekwondo',
+  'Natación':              'natación',
+  'Funcional':             'entrenamiento funcional',
+  'Pilates':               'Pilates',
+  'Yoga':                  'Yoga',
+  'Gimnasio':              'musculación',
+}
+
 function buildMensaje(lead) {
-  const rubroMap = {
-    'Box CrossFit':          'CrossFit',
-    'Artes marciales':       'artes marciales',
-    'Artes marciales mixtas':'MMA',
-    'Muay Thai':             'Muay Thai',
-    'Taekwondo':             'taekwondo',
-    'Natación':              'natación',
-    'Funcional':             'entrenamiento funcional',
-    'Pilates':               'Pilates',
-    'Yoga':                  'Yoga',
-    'Gimnasio':              'musculación',
+  const actividad = ACTIVIDAD_POR_RUBRO[lead.rubro]
+  if (actividad) {
+    return `Hola! Vi el lugar en Google Maps. ¿Siguen dando clases de ${actividad}?`
   }
-  const actividad = rubroMap[lead.rubro] ?? lead.rubro?.toLowerCase() ?? 'las clases'
-  return `Hola! Vi el gimnasio en Google Maps. ¿Siguen dando clases de ${actividad}?`
+  return `Hola! Vi ${lead.nombre ?? 'el negocio'} en Google Maps. ¿Siguen atendiendo?`
 }
 
 function buildWALink(lead) {

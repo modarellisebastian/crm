@@ -101,7 +101,7 @@ function WaMenu({ lead, waNumber, waEstimado, onContacto }) {
     return () => document.removeEventListener('mousedown', handleClick)
   }, [open])
 
-  const templates = WA_TEMPLATES(lead.nombre)
+  const templates = WA_TEMPLATES(lead.nombre, lead.rubro)
 
   function handleTemplate() {
     setOpen(false)

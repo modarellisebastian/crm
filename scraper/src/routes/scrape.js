@@ -11,18 +11,16 @@ const LINKTREE_DOMAINS = new Set(['linktr.ee', 'bento.me', 'beacons.ai', 'bio.li
 // Hosts que parecen web pero son perfiles de Google Business u otros no reales
 const HOSTS_IGNORADOS = new Set(['g.dev', 'goo.gl'])
 
-// Cadenas de gimnasios conocidas — se descartan automáticamente
-const CADENAS_KEYWORDS = [
-  'megatlon', 'sport club', 'sportclub', 'fitness first', 'bodytech', 'body tech',
-  "gold's gym", 'golds gym', 'snap fitness', 'planet fitness', 'equinox',
-  'american fitness', 'muscle factory', 'eko fitness', 'club atlético municipal',
-  'colsubsidio', 'world gym', 'anytime fitness', 'básico fit', 'basic fit',
-]
+// Nombres de país para armar el texto de búsqueda (independiente del countryCode
+// que se le pasa a Apify, que sí acepta cualquier ISO-3166 aunque no esté acá)
+const PAIS_NOMBRE = { AR: 'Argentina', ES: 'España', MX: 'México', CL: 'Chile', CO: 'Colombia', UY: 'Uruguay' }
 
-function esCadena(nombre) {
-  if (!nombre) return false
+// Cadenas/franquicias a excluir — configurable por ciudad+rubro en scraper_config.excluir_keywords,
+// vacío por defecto (no asume ningún rubro en particular)
+function esCadena(nombre, excluirKeywords) {
+  if (!nombre || !excluirKeywords?.length) return false
   const lower = nombre.toLowerCase()
-  return CADENAS_KEYWORDS.some((kw) => lower.includes(kw))
+  return excluirKeywords.some((kw) => lower.includes(kw.toLowerCase()))
 }
 
 function clasificarPresenciaDigital(websiteUrl) {
@@ -90,7 +88,7 @@ function extraerWhatsAppValido(phone, phoneUnformatted) {
   return null
 }
 
-function calcularScore(lead) {
+function calcularScore(lead, umbrales) {
   let score = 0
 
   // Descarte inmediato: cadenas conocidas
@@ -102,11 +100,12 @@ function calcularScore(lead) {
   if (lead.tipo_presencia === 'web_propia')        score += 5
 
   if (lead.reviews_count != null) {
-    if      (lead.reviews_count >= 20 && lead.reviews_count <= 150) score += 20  // sweet spot: establecido pero no cadena
-    else if (lead.reviews_count > 150 && lead.reviews_count <= 300) score += 5   // grande, puede tener software
-    else if (lead.reviews_count > 300)                              score -= 30  // muy probablemente cadena o franquicia
-    else if (lead.reviews_count >= 5)                               score += 5
-    else                                                            score -= 15
+    const { sweetMin, sweetMax, grandeMax } = umbrales
+    if      (lead.reviews_count >= sweetMin && lead.reviews_count <= sweetMax) score += 20  // sweet spot: establecido pero no cadena
+    else if (lead.reviews_count > sweetMax && lead.reviews_count <= grandeMax) score += 5   // grande, puede tener software
+    else if (lead.reviews_count > grandeMax)                                  score -= 30  // muy probablemente cadena o franquicia
+    else if (lead.reviews_count >= 5)                                         score += 5
+    else                                                                      score -= 15
   }
 
   if (lead.rating != null && lead.rating >= 4.0)          score += 10
@@ -120,12 +119,11 @@ function calcularScore(lead) {
   return Math.max(0, Math.min(100, score))
 }
 
-// Prioridad más precisa para el perfil ideal de GymApp:
-// Alta: independiente, tamaño medio, contactable por WhatsApp e Instagram
-function calcularPrioridad(lead) {
+// Alta: independiente, tamaño medio (sweet spot de reviews), contactable por WhatsApp e Instagram
+function calcularPrioridad(lead, umbrales) {
   if (lead.es_cadena) return 'baja'
 
-  const reviewsOk = lead.reviews_count != null && lead.reviews_count >= 20 && lead.reviews_count <= 150
+  const reviewsOk = lead.reviews_count != null && lead.reviews_count >= umbrales.sweetMin && lead.reviews_count <= umbrales.sweetMax
   const contactoDoble = lead.whatsapp && lead.instagram
 
   if (reviewsOk && contactoDoble && lead.score >= 55) return 'alta'
@@ -133,7 +131,7 @@ function calcularPrioridad(lead) {
   return 'baja'
 }
 
-function mapearResultado(item, rubro, ciudad) {
+function mapearResultado(item, rubro, ciudad, excluirKeywords, umbrales) {
   const presencia  = clasificarPresenciaDigital(item.website)
   const whatsapp   = extraerWhatsAppValido(item.phone, item.phoneUnformatted)
   const nombre     = item.title || null
@@ -142,7 +140,7 @@ function mapearResultado(item, rubro, ciudad) {
     nombre,
     rubro,
     ciudad,
-    es_cadena:          esCadena(nombre),
+    es_cadena:          esCadena(nombre, excluirKeywords),
     tipo_presencia:     presencia.tipo_presencia,
     tiene_web:          presencia.tipo_presencia === 'web_propia',
     url_web:            presencia.url_web,
@@ -165,8 +163,8 @@ function mapearResultado(item, rubro, ciudad) {
     place_id:           item.placeId         || null,
   }
 
-  lead.score     = calcularScore(lead)
-  lead.prioridad = calcularPrioridad(lead)
+  lead.score     = calcularScore(lead, umbrales)
+  lead.prioridad = calcularPrioridad(lead, umbrales)
   return lead
 }
 
@@ -177,10 +175,27 @@ router.post('/scrape', async (req, res) => {
     return res.status(400).json({ error: 'ciudad y rubro son requeridos' })
   }
 
-  const cantidad = Math.min(Number(limite) || 20, 50)
-  const query    = provincia
-    ? `${rubro} en ${ciudad}, ${provincia}, Argentina`
-    : `${rubro} en ${ciudad}, Argentina`
+  // Configuración guardada para este ciudad+rubro (keywords a excluir, umbrales de
+  // scoring, país/idioma) — si no existe todavía, se usan los defaults genéricos.
+  const { data: config } = await supabase
+    .from('scraper_config')
+    .select('*')
+    .eq('ciudad', ciudad)
+    .eq('rubro', rubro)
+    .maybeSingle()
+
+  const pais   = (req.body.pais   || config?.pais   || 'AR').toUpperCase()
+  const idioma =  req.body.idioma || config?.idioma || 'es'
+  const excluirKeywords = config?.excluir_keywords ?? []
+  const umbrales = {
+    sweetMin:  config?.reviews_sweet_spot_min ?? 20,
+    sweetMax:  config?.reviews_sweet_spot_max ?? 150,
+    grandeMax: config?.reviews_grande_max     ?? 300,
+  }
+
+  const cantidad   = Math.min(Number(limite) || 20, 50)
+  const paisNombre = PAIS_NOMBRE[pais]
+  const query      = [rubro, 'en', [ciudad, provincia, paisNombre].filter(Boolean).join(', ')].join(' ')
 
   let resultados
   try {
@@ -189,8 +204,8 @@ router.post('/scrape', async (req, res) => {
       {
         searchStringsArray:        [query],
         maxCrawledPlacesPerSearch: cantidad,
-        language:                  'es',
-        countryCode:               'ar',
+        language:                  idioma,
+        countryCode:               pais.toLowerCase(),
         includeHistogram:          false,
         includeOpeningHours:       true,
         includePeopleAlsoSearch:   false,
@@ -241,7 +256,7 @@ router.post('/scrape', async (req, res) => {
   if (!preMapeo.length) return res.json(respuestaVacia)
 
   // Mapeo
-  const mapeados = preMapeo.map((item) => mapearResultado(item, rubro, ciudad))
+  const mapeados = preMapeo.map((item) => mapearResultado(item, rubro, ciudad, excluirKeywords, umbrales))
 
   // Filtro geográfico post-mapeo: descartar si la dirección no menciona la ciudad
   const ciudadLower = ciudad.toLowerCase()
@@ -253,7 +268,7 @@ router.post('/scrape', async (req, res) => {
     return true
   })
 
-  // Filtro cadenas: descartar gimnasios de cadenas conocidas
+  // Filtro cadenas: descartar cadenas/franquicias conocidas (configurable por ciudad+rubro)
   const filtradosCadena = filtradosGeo.filter((l) => {
     if (l.es_cadena) {
       descartados_cadena++
@@ -305,7 +320,9 @@ router.post('/scrape', async (req, res) => {
 
   let insertados = 0
   if (nuevos.length > 0) {
-    const { error: errInsert } = await supabase.from('leads').insert(nuevos)
+    // es_cadena es un campo interno de scoring, no una columna de la tabla leads
+    const paraInsertar = nuevos.map(({ es_cadena, ...resto }) => resto)
+    const { error: errInsert } = await supabase.from('leads').insert(paraInsertar)
     if (errInsert) {
       return res.status(500).json({ error: `Insert error: ${errInsert.message}` })
     }
@@ -315,7 +332,7 @@ router.post('/scrape', async (req, res) => {
   await supabase
     .from('scraper_config')
     .upsert(
-      { ciudad, rubro, ultima_ejecucion: new Date().toISOString() },
+      { ciudad, rubro, ultima_ejecucion: new Date().toISOString(), pais, idioma },
       { onConflict: 'ciudad,rubro' }
     )
 
@@ -355,7 +372,7 @@ router.post('/enriquecer-instagram', async (req, res) => {
 
   const query = ciudad
     ? `site:instagram.com "${nombre}" "${ciudad}"`
-    : `site:instagram.com "${nombre}" gimnasio Argentina`
+    : `site:instagram.com "${nombre}" Argentina`
 
   let resultados
   try {
