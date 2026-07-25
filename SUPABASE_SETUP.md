@@ -212,7 +212,7 @@ CREATE POLICY "scraper_config: eliminación para usuario autenticado"
 2. Hacer clic en **Add user → Create new user**.
 3. Ingresar email y contraseña.
 
-Este usuario será el que use el frontend para autenticarse. El scraper utiliza la `service_role` key, que bypasea RLS y no necesita usuario.
+El frontend ya implementa el login con estas credenciales (`frontend/src/pages/Login.jsx`, usando `supabase.auth.signInWithPassword`): todas las rutas del CRM están protegidas por `RequireAuth` y redirigen a `/login` si no hay sesión iniciada. El scraper utiliza la `service_role` key, que bypasea RLS y no necesita usuario.
 
 ---
 
@@ -265,3 +265,13 @@ CREATE INDEX IF NOT EXISTS idx_leads_score     ON leads (score DESC);
 CREATE INDEX IF NOT EXISTS idx_leads_prioridad ON leads (prioridad);
 CREATE INDEX IF NOT EXISTS idx_leads_ciudad    ON leads (ciudad);
 ```
+
+---
+
+## Nota sobre el estado de este documento
+
+Este archivo describe el esquema original y quedó desactualizado respecto al estado real de la base de datos: no incluye las tablas `servicios`, `casa_saldos`, `casa_gastos_fijos`, `casa_ingresos`, ni varias columnas agregadas por `migration_v3.sql` a `migration_v7.sql`. El esquema completo y actualizado vive en `schema.sql` + `migration_v2.sql` … `migration_v7.sql` en la raíz del proyecto (deben aplicarse en orden). Este documento se consolidará en una única fuente de verdad versionada como parte del refactor (ver plan de refactor).
+
+## Migración v7 — endurecer RLS de finanzas de casa
+
+`migration_v6.sql` dejó las políticas de `casa_saldos`, `casa_gastos_fijos` y `casa_ingresos` como `FOR ALL USING (true)` sin restringir el rol — más laxo que el resto de las tablas, que ya exigen `authenticated`. `migration_v7.sql` las alinea con el resto del esquema. Pegar su contenido en **SQL Editor → Run** sobre la base de datos existente.

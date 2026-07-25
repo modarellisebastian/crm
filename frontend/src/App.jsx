@@ -1,5 +1,7 @@
 import { Routes, Route } from 'react-router-dom'
 import Layout from './components/Layout'
+import RequireAuth from './components/RequireAuth'
+import Login from './pages/Login'
 import Dashboard from './pages/Dashboard'
 import Leads from './pages/Leads'
 import Pipeline from './pages/Pipeline'
@@ -13,7 +15,14 @@ import Cola from './pages/Cola'
 function App() {
   return (
     <Routes>
-      <Route element={<Layout />}>
+      <Route path="/login" element={<Login />} />
+      <Route
+        element={
+          <RequireAuth>
+            <Layout />
+          </RequireAuth>
+        }
+      >
         <Route index element={<Dashboard />} />
         <Route path="/leads"    element={<Leads />} />
         <Route path="/pipeline" element={<Pipeline />} />
