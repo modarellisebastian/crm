@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { SCRAPER_URL, scraperHeaders } from '../lib/scraper'
 
 // { provincia, ciudades[] } — ciudades intermedias de Argentina (~40k–200k habitantes),
 // un buen punto de partida para prospectar negocios locales de cualquier rubro sin la
@@ -216,8 +217,6 @@ const PAISES = [
   { code: 'UY', label: 'Uruguay' },
 ]
 
-const SCRAPER_URL = import.meta.env.VITE_SCRAPER_URL || 'http://localhost:3005'
-
 export default function Scraper() {
   const [ciudad, setCiudad] = useState('')
   const [provincia, setProvincia] = useState('')
@@ -257,7 +256,7 @@ export default function Scraper() {
     try {
       const res = await fetch(`${SCRAPER_URL}/api/scrape`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: scraperHeaders(),
         body: JSON.stringify({ ciudad, provincia, rubro: rubroFinal, limite: 20, pais, idioma }),
       })
 

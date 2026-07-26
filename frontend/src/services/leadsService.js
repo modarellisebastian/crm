@@ -1,4 +1,5 @@
 import { supabase } from '../lib/supabase'
+import { SCRAPER_URL, scraperHeaders } from '../lib/scraper'
 
 export async function fetchContactadosParaAutoTransicion() {
   const { data } = await supabase
@@ -102,10 +103,10 @@ export async function eliminarLeads(ids) {
   return supabase.from('leads').delete().in('id', ids)
 }
 
-export async function buscarInstagram(scraperUrl, { leadId, nombre, ciudad }) {
-  const res = await fetch(`${scraperUrl}/api/enriquecer-instagram`, {
+export async function buscarInstagram({ leadId, nombre, ciudad }) {
+  const res = await fetch(`${SCRAPER_URL}/api/enriquecer-instagram`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: scraperHeaders(),
     body: JSON.stringify({ leadId, nombre, ciudad }),
   })
   return res.json()

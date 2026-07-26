@@ -54,6 +54,10 @@ El frontend requiere login (Supabase Auth, email/password). Crear el usuario man
 
 El rubro a buscar es texto libre (con una lista de sugerencias rápidas, más la opción "Otro"). País e idioma de búsqueda también son configurables desde el formulario (Argentina/español por default). Los criterios de exclusión de cadenas/franquicias y los umbrales de scoring ya no están hardcodeados en el código: se configuran por combinación de `ciudad`+`rubro` en la tabla `scraper_config` (columnas `excluir_keywords`, `reviews_sweet_spot_min/max`, `reviews_grande_max`) — si no hay configuración para una combinación nueva, se usan valores por defecto neutros (sin exclusiones).
 
+### Seguridad del scraper
+
+El microservicio scraper no tenía ninguna autenticación: cualquiera que llegara a `VITE_SCRAPER_URL` podía disparar scraping (consumiendo crédito de Apify) o el enriquecimiento de Instagram. Ahora todas las rutas bajo `/api/*` exigen el header `x-scraper-api-key`, que debe coincidir con `SCRAPER_API_KEY` del `scraper/.env` — configurá el mismo valor en `VITE_SCRAPER_API_KEY` del frontend. `/health` sigue público (no expone nada sensible). El scraper además solo acepta CORS desde `ALLOWED_ORIGIN` como defensa adicional.
+
 ## Variables de entorno
 
 ### Frontend (`frontend/.env`)
@@ -64,6 +68,7 @@ El rubro a buscar es texto libre (con una lista de sugerencias rápidas, más la
 | `VITE_SUPABASE_ANON_KEY` | Clave anon/public de Supabase |
 | `VITE_SCRAPER_URL` | URL del microservicio scraper (ej. `http://localhost:3005`) |
 | `VITE_APP_NAME` | Nombre que se muestra en el sidebar (default: "Mi CRM") |
+| `VITE_SCRAPER_API_KEY` | Debe ser idéntica a `SCRAPER_API_KEY` del scraper — autentica al frontend contra el microservicio |
 
 ### Scraper (`scraper/.env`)
 
@@ -73,5 +78,7 @@ El rubro a buscar es texto libre (con una lista de sugerencias rápidas, más la
 | `SUPABASE_SERVICE_KEY` | Clave service_role de Supabase (nunca exponer en el frontend) |
 | `APIFY_API_TOKEN` | Token de API de Apify |
 | `PORT` | Puerto del microservicio (default 3001) |
+| `SCRAPER_API_KEY` | Secreto compartido que el frontend debe enviar en el header `x-scraper-api-key`. Sin ella, el scraper rechaza todas las requests a `/api/*` |
+| `ALLOWED_ORIGIN` | Origen permitido por CORS (default `http://localhost:5173`) — defensa adicional, la API key es la protección real |
 
 **Importante:** `.env.example` en ambas carpetas debe contener solo placeholders. Las credenciales reales van únicamente en `.env` / `.env.local`, que están en `.gitignore`.

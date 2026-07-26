@@ -37,15 +37,13 @@ function EstadoSelect({ lead, onUpdate }) {
 
 // ─── buscar instagram ─────────────────────────────────────────────────────────
 
-const SCRAPER_URL = import.meta.env.VITE_SCRAPER_URL || 'http://localhost:3005'
-
 function BuscarIG({ lead, onEncontrado }) {
   const [estado, setEstado] = useState('idle') // 'idle' | 'buscando' | 'encontrado' | 'no_encontrado'
 
   async function handleBuscar() {
     setEstado('buscando')
     try {
-      const data = await buscarInstagram(SCRAPER_URL, { leadId: lead.id, nombre: lead.nombre, ciudad: lead.ciudad })
+      const data = await buscarInstagram({ leadId: lead.id, nombre: lead.nombre, ciudad: lead.ciudad })
       if (data.encontrado) {
         setEstado('encontrado')
         onEncontrado(data.instagram)
