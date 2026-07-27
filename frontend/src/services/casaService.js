@@ -31,3 +31,19 @@ export async function actualizarResueltoMovimiento(id, resuelto) {
 export async function eliminarMovimiento(id) {
   return supabase.from('casa_movimientos').delete().eq('id', id)
 }
+
+// Duplica los movimientos de un mes a otro (nombre, tipo, categoría, moneda,
+// monto, vencimiento) reseteando `resuelto` a false — para no tener que cargar
+// a mano los mismos gastos/ingresos recurrentes todos los meses.
+export async function copiarMovimientosDeMes(mesOrigen, mesDestino) {
+  const { data: origen, error: errFetch } = await supabase
+    .from('casa_movimientos')
+    .select('nombre, tipo_movimiento, categoria, moneda, monto, vencimiento_dia')
+    .eq('mes', mesOrigen)
+
+  if (errFetch) return { data: null, error: errFetch }
+  if (!origen?.length) return { data: [], error: null }
+
+  const nuevos = origen.map((m) => ({ ...m, mes: mesDestino, resuelto: false }))
+  return supabase.from('casa_movimientos').insert(nuevos).select()
+}

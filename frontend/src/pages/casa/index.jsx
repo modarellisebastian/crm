@@ -4,6 +4,7 @@ import {
   fetchMovimientosDelMes,
   actualizarResueltoMovimiento,
   eliminarMovimiento,
+  copiarMovimientosDeMes,
 } from '../../services/casaService'
 import { mesKey, mesLabel, prevMes, nextMes, formatARS, formatUSD } from './constants'
 import ModalSaldos from './ModalSaldos'
@@ -20,6 +21,8 @@ export default function FinanzasCasa() {
   const [modalNuevo,  setModalNuevo]  = useState(null) // null | 'egreso' | 'ingreso'
   const [editando,    setEditando]    = useState(null) // movimiento en edición
   const [eliminando,  setEliminando]  = useState(null)
+  const [copiando,    setCopiando]    = useState(false)
+  const [errorCopia,  setErrorCopia]  = useState(null)
 
   useEffect(() => {
     async function fetchData() {
@@ -93,6 +96,15 @@ export default function FinanzasCasa() {
     })
     setModalNuevo(null)
     setEditando(null)
+  }
+
+  async function copiarMesAnterior() {
+    setCopiando(true)
+    setErrorCopia(null)
+    const { data, error: err } = await copiarMovimientosDeMes(prevMes(mes), mes)
+    if (err) setErrorCopia(err.message)
+    else setMovimientos((prev) => [...prev, ...data])
+    setCopiando(false)
   }
 
   if (loading) return (
@@ -227,6 +239,20 @@ export default function FinanzasCasa() {
             ))}
           </div>
         )}
+
+        {/* ── Copiar mes anterior ── */}
+        {movimientos.length === 0 && (
+          <div className="flex items-center justify-between gap-3 rounded-xl bg-blue-50 border border-blue-100 px-4 py-3">
+            <p className="text-sm text-blue-700">
+              Todavía no cargaste nada este mes. Si los gastos e ingresos son parecidos a {mesLabel(prevMes(mes))}, copialos y solo ajustá lo que cambió.
+            </p>
+            <button onClick={copiarMesAnterior} disabled={copiando}
+              className="shrink-0 flex items-center gap-1.5 rounded-lg bg-blue-600 px-3 py-1.5 text-sm font-semibold text-white hover:bg-blue-700 transition-colors disabled:opacity-50 whitespace-nowrap">
+              {copiando ? 'Copiando…' : `Copiar ${mesLabel(prevMes(mes))}`}
+            </button>
+          </div>
+        )}
+        {errorCopia && <p className="text-sm text-red-600">{errorCopia}</p>}
 
         {/* ── Gastos e Ingresos ── */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
