@@ -2,7 +2,7 @@ import { Fragment, useContext } from 'react'
 import { Link, useLocation } from 'react-router-dom'
 import PerfectScrollbar from 'react-perfect-scrollbar'
 import 'react-perfect-scrollbar/dist/css/styles.css'
-import { FiHome, FiUsers, FiList, FiSearch, FiBarChart2, FiDollarSign, FiFileText } from 'react-icons/fi'
+import { FiHome, FiUsers, FiList, FiBarChart2, FiDollarSign, FiFileText } from 'react-icons/fi'
 import { NavigationContext } from '../../context/NavigationProvider'
 
 const menuItems = [
@@ -17,7 +17,6 @@ const menuItems = [
   {
     section: 'Herramientas',
     items: [
-      { label: 'Scraper',       path: '/scraper',  icon: <FiSearch /> },
       { label: 'Reportes',      path: '/reportes',   icon: <FiBarChart2 /> },
       { label: 'Propuestas',    path: '/propuestas', icon: <FiFileText /> },
     ],

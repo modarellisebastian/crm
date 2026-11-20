@@ -7,7 +7,6 @@ import Dashboard from './pages/Dashboard'
 import Leads from './pages/leads'
 import Clientes from './pages/clientes'
 import DetalleCliente from './pages/clientes/DetalleCliente'
-import Scraper from './pages/Scraper'
 import Reportes from './pages/Reportes'
 import Cola from './pages/Cola'
 import Propuestas from './pages/propuestas'
@@ -32,7 +31,6 @@ function App() {
         <Route path="/cola"     element={<Cola />} />
         <Route path="/clientes"     element={<Clientes />} />
         <Route path="/clientes/:id" element={<DetalleCliente />} />
-        <Route path="/scraper"  element={<Scraper />} />
         <Route path="/reportes"   element={<Reportes />} />
         <Route path="/propuestas" element={<Propuestas />} />
 

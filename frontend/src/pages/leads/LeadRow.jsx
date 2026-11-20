@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import { actualizarMovimientoLead, eliminarLead, buscarInstagram } from '../../services/leadsService'
+import { actualizarMovimientoLead, eliminarLead } from '../../services/leadsService'
 import { useToast } from '../../context/ToastProvider'
 import { ESTADOS, ESTADO_LABELS, WA_TEMPLATES } from './constants'
 import { IconWhatsApp, IconEmail, IconInstagram, IconFacebook } from './icons'
@@ -77,33 +77,6 @@ function ScoreBadge({ score }) {
         <div style={{ height: '100%', width: `${Math.min(s, 100)}%`, background: barBg, borderRadius: 2, transition: 'width .3s' }} />
       </div>
     </div>
-  )
-}
-
-// ─── buscar instagram ─────────────────────────────────────────────────────────
-
-function BuscarIG({ lead, onEncontrado }) {
-  const [estado, setEstado] = useState('idle')
-
-  async function handleBuscar() {
-    setEstado('buscando')
-    try {
-      const data = await buscarInstagram({ leadId: lead.id, nombre: lead.nombre, ciudad: lead.ciudad })
-      if (data.encontrado) { setEstado('encontrado'); onEncontrado(data.instagram) }
-      else { setEstado('no_encontrado'); setTimeout(() => setEstado('idle'), 3000) }
-    } catch { setEstado('idle') }
-  }
-
-  if (estado === 'buscando') return (
-    <span style={{ ...ACTION_BTN, color: '#737373' }}>
-      <span className="spinner-border spinner-border-sm" style={{ width: 12, height: 12 }} />
-    </span>
-  )
-
-  return (
-    <button onClick={handleBuscar} title="Buscar Instagram" style={{ ...ACTION_BTN, color: '#737373' }}>
-      <IconInstagram />
-    </button>
   )
 }
 
@@ -272,13 +245,11 @@ function LeadRow({ lead, seleccionado, waContactado, onToggleSeleccion, onUpdate
           )}
 
           {/* Instagram */}
-          {lead.instagram ? (
+          {lead.instagram && (
             <a href={`https://instagram.com/${lead.instagram}`} target="_blank" rel="noopener noreferrer"
               title={`@${lead.instagram}`} style={{ ...ACTION_BTN, color: '#e1306c', borderColor: '#f7c0d4', textDecoration: 'none' }}>
               <IconInstagram />
             </a>
-          ) : (
-            <BuscarIG lead={lead} onEncontrado={(ig) => onUpdate(lead.id, { instagram: ig })} />
           )}
 
           {/* Ver detalle y notas */}

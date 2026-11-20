@@ -1,5 +1,4 @@
 import { supabase } from '../lib/supabase'
-import { SCRAPER_URL, scraperHeaders } from '../lib/scraper'
 
 export async function fetchContactadosParaAutoTransicion() {
   const { data } = await supabase
@@ -131,13 +130,4 @@ export async function fetchEstadosCounts() {
   const counts = {}
   data.forEach(({ estado }) => { counts[estado] = (counts[estado] ?? 0) + 1 })
   return Object.entries(counts).map(([estado, count]) => ({ estado, count }))
-}
-
-export async function buscarInstagram({ leadId, nombre, ciudad }) {
-  const res = await fetch(`${SCRAPER_URL}/api/enriquecer-instagram`, {
-    method: 'POST',
-    headers: scraperHeaders(),
-    body: JSON.stringify({ leadId, nombre, ciudad }),
-  })
-  return res.json()
 }
