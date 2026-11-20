@@ -35,3 +35,14 @@ Thumbs.db
 
 # Datos financieros personales reales (no son data de prueba)
 seed_casa.sql
+
+# Vite temp configs
+frontend/vite.config.js.timestamp-*.mjs
+
+# Templates/archivos ajenos al CRM y data de prospectos
+template-dashboard/
+*.zip
+*.xlsx
+addtocard.php
+middle-sea-test-figma/
+.claude/

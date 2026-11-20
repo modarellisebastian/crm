@@ -1,0 +1,215 @@
+/*
+<--!----------------------------------------------------------------!-->
+<--! Theme Variables !-->
+<--!----------------------------------------------------------------!-->
+*/
+
+@import "./bs-custom-variables"; // Bootstrap Overwrite Variables
+
+/*
+<--!----------------------------------------------------------------!-->
+<--! Colors !-->
+<--!----------------------------------------------------------------!-->
+*/
+$font-body: 0.84rem;
+$brand-body: #404040;
+$brand-dark: #0a0a0a;
+$brand-muted: #737373;
+$brand-light: #f5f5f5;
+$border-color-2: #dcdcdc;
+
+/*
+<--!----------------------------------------------------------------!-->
+<--! Font Size !-->
+<--!----------------------------------------------------------------!-->
+*/
+// size
+$font-5: 5px;
+$font-6: 6px;
+$font-7: 7px;
+$font-8: 8px;
+$font-9: 9px;
+$font-10: 10px;
+$font-11: 11px;
+$font-12: 12px;
+$font-13: 13px;
+$font-14: 14px;
+$font-15: 15px;
+$font-16: 16px;
+$font-17: 17px;
+$font-18: 18px;
+$font-19: 19px;
+$font-20: 20px;
+$font-22: 22px;
+$font-24: 24px;
+$font-26: 26px;
+$font-28: 28px;
+$font-30: 30px;
+// weight
+$font-100: 100;
+$font-200: 200;
+$font-300: 300;
+$font-400: 400;
+$font-500: 500;
+$font-600: 600;
+$font-700: 700;
+$font-800: 800;
+$font-900: 900;
+
+/*
+<--!----------------------------------------------------------------!-->
+<--! Font Family !-->
+<--!----------------------------------------------------------------!-->
+*/
+$font-lato: "Lato", sans-serif;
+$font-rubik: "Rubik", sans-serif;
+$font-inter: "Geist", "Inter", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+$font-cinzel: "Cinzel", sans-serif;
+$font-nunito: "Nunito", sans-serif;
+$font-roboto: "Roboto", sans-serif;
+$font-ubuntu: "Ubuntu", sans-serif;
+$font-poppins: "Poppins", sans-serif;
+$font-raleway: "Raleway", sans-serif;
+$font-noto-sans: "Noto Sans", sans-serif;
+$font-fira-sans: "Fira Sans", sans-serif;
+$font-work-sans: "Work Sans", sans-serif;
+$font-maven-pro: "Maven Pro", sans-serif;
+$font-open-sans: "Open Sans", sans-serif;
+$font-quicksand: "Quicksand", sans-serif;
+$font-roboto-slab: "Roboto Slab", serif;
+$font-montserrat: "Montserrat", sans-serif;
+$font-josefin-sans: "Josefin Sans", sans-serif;
+$font-ibm-plex-sans: "IBM Plex Sans", sans-serif;
+$font-source-sans-pro: "Source Sans Pro", sans-serif;
+$font-montserrat-alt: "Montserrat Alternates", sans-serif;
+$font-system-ui: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, "Noto Sans", "Liberation Sans", sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol", "Noto Color Emoji";
+
+/*
+<--!----------------------------------------------------------------!-->
+<--! Font Style !-->
+<--!----------------------------------------------------------------!-->
+*/
+$font-italic: italic;
+$font-uppercase: uppercase;
+$font-lowercase: lowercase;
+$font-capitalize: capitalize;
+
+/*
+<--!----------------------------------------------------------------!-->
+<--! BG Soft Color !-->
+<--!----------------------------------------------------------------!-->
+*/
+$bg-soft-primary: rgb($primary, 0.075);
+$bg-soft-success: rgb($success, 0.075);
+$bg-soft-danger: rgb($danger, 0.075);
+$bg-soft-info: rgb($info, 0.075);
+$bg-soft-warning: rgb($warning, 0.075);
+$bg-soft-teal: rgb($teal, 0.075);
+$bg-soft-cyan: rgb($cyan, 0.075);
+$bg-soft-indigo: rgb($indigo, 0.075);
+$bg-soft-darken: rgb($darken, 0.075);
+
+/*
+<--!----------------------------------------------------------------!-->
+<--! Spacing !-->
+<--!----------------------------------------------------------------!-->
+*/
+$text-spacing-none: 0;
+$text-spacing-xs: 0.15px;
+$text-spacing-sm: 0.25px;
+$text-spacing-md: 0.5px;
+$text-spacing-lg: 0.75px;
+$text-spacing-xl: 1px;
+$text-spacing-xxl: 1.5px;
+$text-spacing-xxxl: 2px;
+
+/*
+<--!----------------------------------------------------------------!-->
+<--! Shadows !-->
+<--!----------------------------------------------------------------!-->
+*/
+$shadow-none: none;
+$shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.04);
+$shadow-md: 0 1px 2px rgba(0, 0, 0, 0.04);
+$shadow-lg: 0 8px 24px rgba(0, 0, 0, 0.08);
+$shadow-xl: 0 8px 24px rgba(0, 0, 0, 0.08);
+$shadow-xxl: 0 8px 24px rgba(0, 0, 0, 0.08);
+$card-shadow: 0 1px 2px 0 rgb(0 0 0 / 0.04);
+
+/*
+<--!----------------------------------------------------------------!-->
+<--! Border !-->
+<--!----------------------------------------------------------------!-->
+*/
+$border-none: transparent;
+$border-soft: darken($gray-100, 1);
+$border-normal: darken($gray-100, 2);
+$border-medium: darken($gray-100, 5);
+$border-hard: darken($gray-100, 8);
+$border-contrast: darken($gray-100, 12);
+
+/*
+<--!----------------------------------------------------------------!-->
+<--! Radius !-->
+<--!----------------------------------------------------------------!-->
+*/
+$radius-none: 0;
+$radius-xs: 3px;
+$radius-sm: 6px;
+$radius-md: 8px;
+$radius-lg: 10px;
+$radius-xl: 12px;
+$radius-xxl: 12px;
+$radius-pill: 30px;
+$radius-circle: 50px;
+
+/*
+<--!----------------------------------------------------------------!-->
+<--! Navigarion !-->
+<--!----------------------------------------------------------------!-->
+*/
+$header-height: 64px;
+$navigation-width: 248px;
+$navigation-collapsed-width: 100px;
+$navigation-caption: $white;
+$navigation-active-color: $white;
+$navigation-color: #a3a3a3;
+$navigation-icon-color: #a3a3a3;
+$navigation-background: #0a0a0a;
+$navigation-hover-color: #171717;
+$navigation-border-color: #262626;
+
+/*
+<--!----------------------------------------------------------------!-->
+<--! Header !-->
+<--!----------------------------------------------------------------!-->
+*/
+$header-color: #262626;
+$header-background: #0a0a0a;
+$header-link-color: #737373;
+$header-brand-color: #0a0a0a;
+$header-border-color: #262626;
+
+/*
+<--!----------------------------------------------------------------!-->
+<--! Horizontal Menu !-->
+<--!----------------------------------------------------------------!-->
+*/
+$topbar-height: 60px;
+$topbar-color: #a3a3a3;
+$topbar-background: #171717;
+$header-submenu-color: #0a0a0a;
+$header-submenu-background: $white;
+
+/*
+<--!----------------------------------------------------------------!-->
+<--! Theme Dark !-->
+<--!----------------------------------------------------------------!-->
+*/
+$dark-theme-color: #a3a3a3;
+$dark-theme-color-dark: #171717;
+$dark-theme-color-darker: #0a0a0a;
+$dark-theme-color-hover: #262626;
+$dark-theme-color-hover-2: #1f1f1f;
+$dark-theme-color-border: #262626;
+$dark-theme-box-shadow: 0 0 20px rgb(0 0 0 / 50%);

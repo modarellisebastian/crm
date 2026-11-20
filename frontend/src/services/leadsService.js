@@ -103,6 +103,36 @@ export async function eliminarLeads(ids) {
   return supabase.from('leads').delete().in('id', ids)
 }
 
+// ── Notas por lead ────────────────────────────────────────────────────────────
+export async function fetchLeadNotes(leadId) {
+  return supabase
+    .from('lead_notes')
+    .select('*')
+    .eq('lead_id', leadId)
+    .order('created_at', { ascending: false })
+}
+
+export async function addLeadNote(leadId, texto) {
+  return supabase
+    .from('lead_notes')
+    .insert({ lead_id: leadId, texto })
+    .select()
+    .single()
+}
+
+export async function deleteLeadNote(id) {
+  return supabase.from('lead_notes').delete().eq('id', id)
+}
+
+// ── Stats para gráficos ───────────────────────────────────────────────────────
+export async function fetchEstadosCounts() {
+  const { data } = await supabase.from('leads').select('estado')
+  if (!data) return []
+  const counts = {}
+  data.forEach(({ estado }) => { counts[estado] = (counts[estado] ?? 0) + 1 })
+  return Object.entries(counts).map(([estado, count]) => ({ estado, count }))
+}
+
 export async function buscarInstagram({ leadId, nombre, ciudad }) {
   const res = await fetch(`${SCRAPER_URL}/api/enriquecer-instagram`, {
     method: 'POST',

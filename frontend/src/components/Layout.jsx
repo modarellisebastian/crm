@@ -1,14 +1,24 @@
-import { Outlet } from 'react-router-dom'
-import Sidebar from './Sidebar'
+import { useLocation, Outlet } from 'react-router-dom'
+import Header from './layout/Header'
+import Sidebar from './layout/Sidebar'
+import useBootstrapUtils from '../hooks/useBootstrapUtils'
 
 function Layout() {
+  const { pathname } = useLocation()
+  useBootstrapUtils(pathname)
+
   return (
-    <div className="flex min-h-screen bg-gray-100">
+    <>
+      <Header />
       <Sidebar />
-      <main className="flex-1 p-8 overflow-y-auto">
-        <Outlet />
+      <main className="nxl-container">
+        <div className="nxl-content">
+          <div className="main-content">
+            <Outlet />
+          </div>
+        </div>
       </main>
-    </div>
+    </>
   )
 }
 

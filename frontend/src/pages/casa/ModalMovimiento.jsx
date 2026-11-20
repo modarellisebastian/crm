@@ -13,23 +13,12 @@ function ModalMovimiento({ mes, item, tipoInicial, onGuardar, onCerrar }) {
     monto:           item?.monto           ?? '',
     vencimiento_dia: item?.vencimiento_dia ?? '',
     resuelto:        item?.resuelto        ?? false,
+    notas:           item?.notas           ?? '',
   })
   const [guardando, setGuardando] = useState(false)
   const [error, setError] = useState(null)
 
   function set(campo, valor) { setForm((f) => ({ ...f, [campo]: valor })); setError(null) }
-
-  function handleTipoMovimiento(tipo_movimiento) {
-    setForm((f) => ({ ...f, tipo_movimiento }))
-  }
-
-  function handleCategoria(categoria) {
-    setForm((f) => ({
-      ...f, categoria,
-      moneda: categoria === 'sueldo_usd' ? 'usd' : 'ars',
-      nombre: categoria === 'sueldo_usd' ? 'Sueldo DolarApp' : f.nombre,
-    }))
-  }
 
   const esIngreso = form.tipo_movimiento === 'ingreso'
 
@@ -48,6 +37,7 @@ function ModalMovimiento({ mes, item, tipoInicial, onGuardar, onCerrar }) {
           monto:           Number(form.monto),
           vencimiento_dia: null,
           resuelto:        form.resuelto,
+          notas:           form.notas || null,
         }
       : {
           tipo_movimiento: 'egreso',
@@ -57,6 +47,7 @@ function ModalMovimiento({ mes, item, tipoInicial, onGuardar, onCerrar }) {
           monto:           Number(form.monto),
           vencimiento_dia: form.vencimiento_dia ? Number(form.vencimiento_dia) : null,
           resuelto:        form.resuelto,
+          notas:           form.notas || null,
         }
 
     const result = editando
@@ -72,38 +63,35 @@ function ModalMovimiento({ mes, item, tipoInicial, onGuardar, onCerrar }) {
     : (esIngreso ? 'Nuevo ingreso' : 'Nuevo gasto fijo')
 
   return (
-    <Modal title={titulo} onClose={onCerrar} maxWidth="max-w-sm">
-        <form onSubmit={handleSubmit} className="px-6 py-5 space-y-4">
-          {/* Tipo de movimiento */}
-          <div className="grid grid-cols-2 gap-2">
-            {[
-              { val: 'egreso',  label: 'Gasto fijo' },
-              { val: 'ingreso', label: 'Ingreso' },
-            ].map(({ val, label }) => (
-              <button key={val} type="button" onClick={() => handleTipoMovimiento(val)}
-                className={`py-2 rounded-lg text-xs font-semibold border transition-colors ${
-                  form.tipo_movimiento === val
-                    ? 'bg-blue-50 text-blue-700 border-blue-200'
-                    : 'border-gray-200 text-gray-500 hover:border-gray-300'
-                }`}>
+    <Modal title={titulo} onClose={onCerrar}>
+      <form onSubmit={handleSubmit}>
+        <div className="modal-body d-flex flex-column gap-3">
+
+          {/* Tipo */}
+          <div className="btn-group w-100">
+            {[{ val: 'egreso', label: 'Gasto fijo' }, { val: 'ingreso', label: 'Ingreso' }].map(({ val, label }) => (
+              <button key={val} type="button"
+                className={`btn btn-sm ${form.tipo_movimiento === val ? 'btn-primary' : 'btn-outline-secondary'}`}
+                onClick={() => set('tipo_movimiento', val)}>
                 {label}
               </button>
             ))}
           </div>
 
-          {/* Categoría de ingreso (solo si es ingreso) */}
+          {/* Categoría (solo ingreso) */}
           {esIngreso && (
-            <div className="grid grid-cols-2 gap-2">
-              {[
-                { val: 'freelance',  label: 'Freelance (ARS)' },
-                { val: 'sueldo_usd', label: 'Sueldo (USD)' },
-              ].map(({ val, label }) => (
-                <button key={val} type="button" onClick={() => handleCategoria(val)}
-                  className={`py-2 rounded-lg text-xs font-semibold border transition-colors ${
-                    form.categoria === val
-                      ? 'bg-blue-50 text-blue-700 border-blue-200'
-                      : 'border-gray-200 text-gray-500 hover:border-gray-300'
-                  }`}>
+            <div className="btn-group w-100">
+              {[{ val: 'freelance', label: 'Freelance (ARS)' }, { val: 'sueldo_usd', label: 'Sueldo (USD)' }].map(({ val, label }) => (
+                <button key={val} type="button"
+                  className={`btn btn-sm ${form.categoria === val ? 'btn-primary' : 'btn-outline-secondary'}`}
+                  onClick={() => {
+                    setForm(f => ({
+                      ...f,
+                      categoria: val,
+                      moneda: val === 'sueldo_usd' ? 'usd' : 'ars',
+                      nombre: val === 'sueldo_usd' ? 'Sueldo DolarApp' : f.nombre,
+                    }))
+                  }}>
                   {label}
                 </button>
               ))}
@@ -111,62 +99,68 @@ function ModalMovimiento({ mes, item, tipoInicial, onGuardar, onCerrar }) {
           )}
 
           {/* Nombre */}
-          <div className="space-y-1.5">
-            <label className="block text-sm font-medium text-gray-700">
+          <div>
+            <label className="form-label small fw-medium mb-1">
               {esIngreso ? 'Nombre / Cliente' : 'Nombre'}
             </label>
-            <input list="movimiento-nombres" value={form.nombre} onChange={(e) => set('nombre', e.target.value)}
-              placeholder={esIngreso ? 'Ej: HOLAHELLO' : 'Ej: Inmobiliaria'}
-              className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
+            <input list="movimiento-nombres" className="form-control form-control-sm"
+              value={form.nombre} onChange={(e) => set('nombre', e.target.value)}
+              placeholder={esIngreso ? 'Ej: HOLAHELLO' : 'Ej: Inmobiliaria'} />
             <datalist id="movimiento-nombres">
               {(esIngreso ? INGRESOS_DEFAULT : GASTOS_FIJOS_DEFAULT).map((n) => <option key={n} value={n} />)}
             </datalist>
           </div>
 
-          {/* Monto (+ vencimiento si es egreso) */}
-          <div className={esIngreso ? '' : 'grid grid-cols-2 gap-3'}>
-            <div className="space-y-1.5">
-              <label className="block text-sm font-medium text-gray-700">
+          {/* Monto + vencimiento */}
+          <div className={`row g-2`}>
+            <div className={esIngreso ? 'col-12' : 'col-7'}>
+              <label className="form-label small fw-medium mb-1">
                 Monto {esIngreso ? (form.moneda === 'usd' ? '(USD)' : '(ARS)') : ''}
               </label>
-              <div className="relative">
-                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-gray-400">
-                  {esIngreso && form.moneda === 'usd' ? 'U$D' : '$'}
-                </span>
-                <input type="number" min="0" step="any" value={form.monto}
-                  onChange={(e) => set('monto', e.target.value)} placeholder="0"
-                  className="w-full rounded-lg border border-gray-300 pl-9 pr-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
+              <div className="input-group input-group-sm">
+                <span className="input-group-text">{esIngreso && form.moneda === 'usd' ? 'U$D' : '$'}</span>
+                <input type="number" min="0" step="any" className="form-control"
+                  value={form.monto} onChange={(e) => set('monto', e.target.value)} placeholder="0" />
               </div>
             </div>
             {!esIngreso && (
-              <div className="space-y-1.5">
-                <label className="block text-sm font-medium text-gray-700">Vence día</label>
-                <input type="number" min="1" max="31" value={form.vencimiento_dia}
-                  onChange={(e) => set('vencimiento_dia', e.target.value)} placeholder="—"
-                  className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
+              <div className="col-5">
+                <label className="form-label small fw-medium mb-1">Vence día</label>
+                <input type="number" min="1" max="31" className="form-control form-control-sm"
+                  value={form.vencimiento_dia} onChange={(e) => set('vencimiento_dia', e.target.value)} placeholder="—" />
               </div>
             )}
           </div>
 
-          {/* Resuelto */}
-          <label className="flex items-center gap-2 cursor-pointer">
-            <input type="checkbox" checked={form.resuelto} onChange={(e) => set('resuelto', e.target.checked)}
-              className="h-4 w-4 rounded border-gray-300 text-green-600 focus:ring-green-500" />
-            <span className="text-sm text-gray-700">{esIngreso ? 'Ya cobrado' : 'Ya pagado'}</span>
-          </label>
-
-          {error && <p className="text-sm text-red-600">{error}</p>}
-          <div className="flex justify-end gap-2 pt-1">
-            <button type="button" onClick={onCerrar}
-              className="rounded-lg px-4 py-2 text-sm font-medium text-gray-600 hover:bg-gray-100 transition-colors">
-              Cancelar
-            </button>
-            <button type="submit" disabled={guardando}
-              className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-700 transition-colors disabled:opacity-50">
-              {guardando ? 'Guardando…' : 'Guardar'}
-            </button>
+          {/* Notas */}
+          <div>
+            <label className="form-label small fw-medium mb-1">
+              Notas <span className="text-muted fw-normal">(opcional)</span>
+            </label>
+            <textarea className="form-control form-control-sm" rows={2}
+              value={form.notas} onChange={(e) => set('notas', e.target.value)}
+              placeholder="Ej: 2 cuotas atrasadas + corriente" />
           </div>
-        </form>
+
+          {/* Resuelto */}
+          <div className="form-check">
+            <input type="checkbox" className="form-check-input" id="resuelto"
+              checked={form.resuelto} onChange={(e) => set('resuelto', e.target.checked)} />
+            <label className="form-check-label small" htmlFor="resuelto">
+              {esIngreso ? 'Ya cobrado' : 'Ya pagado'}
+            </label>
+          </div>
+
+          {error && <p className="text-danger small mb-0">{error}</p>}
+        </div>
+
+        <div className="modal-footer border-top">
+          <button type="button" className="btn btn-light btn-sm" onClick={onCerrar}>Cancelar</button>
+          <button type="submit" className="btn btn-primary btn-sm" disabled={guardando}>
+            {guardando ? 'Guardando…' : 'Guardar'}
+          </button>
+        </div>
+      </form>
     </Modal>
   )
 }

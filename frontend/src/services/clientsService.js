@@ -1,6 +1,6 @@
 import { supabase } from '../lib/supabase'
 
-const SELECT_COMPLETO = '*, leads(nombre, rubro, ciudad), payments(*), servicios(*)'
+const SELECT_COMPLETO = '*, leads(nombre, rubro, ciudad)'
 
 export async function fetchLeadIdsConCliente() {
   return supabase.from('clients').select('lead_id').not('lead_id', 'is', null)
@@ -32,4 +32,23 @@ export async function actualizarCliente(id, payload) {
 
 export async function eliminarCliente(id) {
   return supabase.from('clients').delete().eq('id', id)
+}
+
+// ─── notas de cliente ─────────────────────────────────────────────────────────
+
+export async function fetchClientNotes(clientId) {
+  const { data, error } = await supabase
+    .from('client_notes')
+    .select('*')
+    .eq('client_id', clientId)
+    .order('created_at', { ascending: false })
+  return { data: data ?? [], error }
+}
+
+export async function addClientNote(clientId, texto) {
+  return supabase.from('client_notes').insert({ client_id: clientId, texto }).select().single()
+}
+
+export async function deleteClientNote(id) {
+  return supabase.from('client_notes').delete().eq('id', id)
 }

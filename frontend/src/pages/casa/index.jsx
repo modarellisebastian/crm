@@ -1,16 +1,21 @@
 import { useEffect, useState } from 'react'
+import EmptyState from '../../components/EmptyState'
+import { useToast } from '../../context/ToastProvider'
 import {
   fetchUltimosSaldos,
   fetchMovimientosDelMes,
   actualizarResueltoMovimiento,
   eliminarMovimiento,
   copiarMovimientosDeMes,
+  copiarMovimientosPorTipo,
 } from '../../services/casaService'
 import { mesKey, mesLabel, prevMes, nextMes, formatARS, formatUSD } from './constants'
 import ModalSaldos from './ModalSaldos'
 import ModalMovimiento from './ModalMovimiento'
+import { FiChevronLeft, FiChevronRight, FiEdit2, FiTrash2, FiPlus, FiDollarSign, FiTrendingDown, FiBarChart2, FiCreditCard, FiSmartphone, FiTrendingUp, FiGlobe, FiBriefcase } from 'react-icons/fi'
 
 export default function FinanzasCasa() {
+  const toast = useToast()
   const [mes, setMes] = useState(mesKey())
   const [saldos, setSaldos] = useState(null)
   const [movimientos, setMovimientos] = useState([])
@@ -18,19 +23,18 @@ export default function FinanzasCasa() {
   const [error, setError] = useState(null)
 
   const [modalSaldos, setModalSaldos] = useState(false)
-  const [modalNuevo,  setModalNuevo]  = useState(null) // null | 'egreso' | 'ingreso'
-  const [editando,    setEditando]    = useState(null) // movimiento en edición
+  const [modalNuevo,  setModalNuevo]  = useState(null)
+  const [editando,    setEditando]    = useState(null)
   const [eliminando,  setEliminando]  = useState(null)
   const [copiando,    setCopiando]    = useState(false)
   const [errorCopia,  setErrorCopia]  = useState(null)
+  const [copiandoG,   setCopiandoG]   = useState(false)
+  const [copiandoI,   setCopiandoI]   = useState(false)
 
   useEffect(() => {
     async function fetchData() {
       setLoading(true)
-      const [
-        { data: s, error: e1 },
-        { data: m, error: e2 },
-      ] = await Promise.all([
+      const [{ data: s, error: e1 }, { data: m, error: e2 }] = await Promise.all([
         fetchUltimosSaldos(),
         fetchMovimientosDelMes(mes),
       ])
@@ -44,395 +48,382 @@ export default function FinanzasCasa() {
   const gastos   = movimientos.filter((m) => m.tipo_movimiento === 'egreso')
   const ingresos = movimientos.filter((m) => m.tipo_movimiento === 'ingreso')
 
-  // ── cálculos ─────────────────────────────────────────────────────────────────
+  const tc         = saldos?.tipo_cambio ?? 1500
+  const usdActual  = (saldos?.dolarapp_usd ?? 0) + (saldos?.bbva_usd ?? 0)
+  const totalPesos = (saldos?.bbva ?? 0) + (saldos?.mercadopago ?? 0) + (saldos?.efectivo ?? 0) + (saldos?.cuenta_dni ?? 0)
 
-  const tc = saldos?.tipo_cambio ?? 1500
-  const usdActual = saldos?.dolarapp_usd ?? 0
+  const ingresosPendientesARS = ingresos.filter(i => !i.resuelto && i.moneda === 'ars').reduce((s, i) => s + i.monto, 0)
+  const ingresosPendientesUSD = ingresos.filter(i => !i.resuelto && i.moneda === 'usd').reduce((s, i) => s + i.monto, 0)
+  const gastosPendientesARS   = gastos.filter(g => !g.resuelto).reduce((s, g) => s + g.monto, 0)
+  const totalIngresosARS      = ingresos.filter(i => i.moneda === 'ars').reduce((s, i) => s + i.monto, 0)
+  const totalIngresosUSD      = ingresos.filter(i => i.moneda === 'usd').reduce((s, i) => s + i.monto, 0)
+  const totalGastosARS        = gastos.reduce((s, g) => s + g.monto, 0)
 
-  const totalPesos = (saldos?.bbva ?? 0) + (saldos?.mercadopago ?? 0)
-    + (saldos?.efectivo ?? 0) + (saldos?.cuenta_dni ?? 0)
-
-  const ingresosPendientesARS = ingresos
-    .filter((i) => !i.resuelto && i.moneda === 'ars')
-    .reduce((s, i) => s + i.monto, 0)
-
-  const ingresosPendientesUSD = ingresos
-    .filter((i) => !i.resuelto && i.moneda === 'usd')
-    .reduce((s, i) => s + i.monto, 0)
-
-  const gastosPendientesARS = gastos
-    .filter((g) => !g.resuelto)
-    .reduce((s, g) => s + g.monto, 0)
-
-  const totalIngresosARS   = ingresos.filter((i) => i.moneda === 'ars').reduce((s, i) => s + i.monto, 0)
-  const totalIngresosUSD   = ingresos.filter((i) => i.moneda === 'usd').reduce((s, i) => s + i.monto, 0)
-  const totalGastosARS     = gastos.reduce((s, g) => s + g.monto, 0)
-
-  // Proyección: pesos disponibles = en cuenta + freelance pendiente - gastos fijos pendientes
-  const netPesos = totalPesos + ingresosPendientesARS - gastosPendientesARS
-  const usdVender = netPesos < 0 ? Math.abs(netPesos) / tc : 0
+  const netPesos    = totalPesos + ingresosPendientesARS - gastosPendientesARS
+  const usdVender   = netPesos < 0 ? Math.abs(netPesos) / tc : 0
   const usdProyectado = usdActual + ingresosPendientesUSD - usdVender
 
-  // ── acciones ─────────────────────────────────────────────────────────────────
+  // Gasto diario disponible
+  const hoy = new Date()
+  const diasEnMes = new Date(hoy.getFullYear(), hoy.getMonth() + 1, 0).getDate()
+  const diasRestantes = diasEnMes - hoy.getDate() + 1 // incluye hoy
+  const disponibleARS = Math.max(0, netPesos)
+  const gastoDiario = diasRestantes > 0 ? disponibleARS / diasRestantes : 0
 
   async function toggleResuelto(m) {
     const nuevo = !m.resuelto
-    setMovimientos((prev) => prev.map((x) => x.id === m.id ? { ...x, resuelto: nuevo } : x))
+    setMovimientos(prev => prev.map(x => x.id === m.id ? { ...x, resuelto: nuevo } : x))
     const { error: err } = await actualizarResueltoMovimiento(m.id, nuevo)
-    if (err) setMovimientos((prev) => prev.map((x) => x.id === m.id ? { ...x, resuelto: m.resuelto } : x))
+    if (err) setMovimientos(prev => prev.map(x => x.id === m.id ? { ...x, resuelto: m.resuelto } : x))
   }
 
   async function eliminar(id) {
     setEliminando(id)
     const { error: err } = await eliminarMovimiento(id)
-    if (!err) setMovimientos((prev) => prev.filter((x) => x.id !== id))
+    if (!err) { setMovimientos(prev => prev.filter(x => x.id !== id)); toast('Movimiento eliminado', 'error') }
+    else toast('Error al eliminar', 'error')
     setEliminando(null)
   }
 
   function onGuardarMovimiento(m) {
-    setMovimientos((prev) => {
-      const existe = prev.find((x) => x.id === m.id)
-      return existe ? prev.map((x) => x.id === m.id ? m : x) : [...prev, m]
+    setMovimientos(prev => {
+      const existe = prev.find(x => x.id === m.id)
+      toast(existe ? 'Movimiento actualizado' : 'Movimiento guardado', 'success')
+      return existe ? prev.map(x => x.id === m.id ? m : x) : [...prev, m]
     })
     setModalNuevo(null)
     setEditando(null)
   }
 
-  async function copiarMesAnterior() {
-    setCopiando(true)
-    setErrorCopia(null)
-    const { data, error: err } = await copiarMovimientosDeMes(prevMes(mes), mes)
-    if (err) setErrorCopia(err.message)
-    else setMovimientos((prev) => [...prev, ...data])
-    setCopiando(false)
+  async function copiarGastosAnteriores() {
+    setCopiandoG(true)
+    const { data, error: err } = await copiarMovimientosPorTipo(prevMes(mes), mes, 'egreso')
+    if (!err && data) setMovimientos(prev => [...prev, ...data])
+    setCopiandoG(false)
   }
 
-  if (loading) return (
-    <div className="space-y-4">
-      <h1 className="text-2xl font-semibold text-gray-800">Finanzas Casa</h1>
-      <p className="text-sm text-gray-400">Cargando…</p>
-    </div>
-  )
+  async function copiarIngresosAnteriores() {
+    setCopiandoI(true)
+    const { data, error: err } = await copiarMovimientosPorTipo(prevMes(mes), mes, 'ingreso')
+    if (!err && data) setMovimientos(prev => [...prev, ...data])
+    setCopiandoI(false)
+  }
 
-  if (error) return (
-    <div className="space-y-4">
-      <h1 className="text-2xl font-semibold text-gray-800">Finanzas Casa</h1>
-      <p className="text-sm text-red-500">Error: {error}</p>
-    </div>
-  )
+  if (loading) return <div className="d-flex align-items-center gap-2 text-muted p-4"><div className="spinner-border spinner-border-sm" /><span>Cargando…</span></div>
+  if (error)   return <p className="text-danger p-4">Error: {error}</p>
 
-  // ── render ───────────────────────────────────────────────────────────────────
-
-  const iconTrash = (
-    <svg className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
-      <path fillRule="evenodd" d="M8.75 1A2.75 2.75 0 006 3.75v.443c-.795.077-1.584.176-2.365.298a.75.75 0 10.23 1.482l.149-.022.841 10.518A2.75 2.75 0 007.596 19h4.807a2.75 2.75 0 002.742-2.53l.841-10.52.149.023a.75.75 0 00.23-1.482A41.03 41.03 0 0014 4.193v-.443A2.75 2.75 0 0011.25 1h-2.5zM10 4c.84 0 1.673.025 2.5.075V3.75c0-.69-.56-1.25-1.25-1.25h-2.5c-.69 0-1.25.56-1.25 1.25v.325C8.327 4.025 9.16 4 10 4z" clipRule="evenodd" />
-    </svg>
-  )
-
-  const iconEdit = (
-    <svg className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
-      <path d="M5.433 13.917l1.262-3.155A4 4 0 017.58 9.42l6.92-6.918a2.121 2.121 0 013 3l-6.92 6.918c-.383.383-.84.685-1.343.886l-3.154 1.262a.5.5 0 01-.65-.65z" />
-      <path d="M3.5 5.75c0-.69.56-1.25 1.25-1.25H10A.75.75 0 0010 3H4.75A2.75 2.75 0 002 5.75v9.5A2.75 2.75 0 004.75 18h9.5A2.75 2.75 0 0017 15.25V10a.75.75 0 00-1.5 0v5.25c0 .69-.56 1.25-1.25 1.25h-9.5c-.69 0-1.25-.56-1.25-1.25v-9.5z" />
-    </svg>
-  )
+  const saldosCards = saldos ? [
+    { label: 'BBVA',        valor: saldos.bbva,                moneda: 'ars', icon: <FiCreditCard size={16} />,  progressN: 1 },
+    { label: 'MercadoPago', valor: saldos.mercadopago,         moneda: 'ars', icon: <FiSmartphone size={16} />,  progressN: 1 },
+    { label: 'Efectivo',    valor: saldos.efectivo,            moneda: 'ars', icon: <FiBriefcase size={16} />,   progressN: 1 },
+    { label: 'Cuenta DNI',  valor: saldos.cuenta_dni,          moneda: 'ars', icon: <FiCreditCard size={16} />,  progressN: 1 },
+    { label: 'DolarApp',    valor: saldos.dolarapp_usd,        moneda: 'usd', icon: <FiDollarSign size={16} />,  progressN: 3 },
+    { label: 'BBVA USD',    valor: saldos.bbva_usd,            moneda: 'usd', icon: <FiGlobe size={16} />,       progressN: 3 },
+    { label: 'TC DolarApp', valor: saldos.tipo_cambio,         moneda: 'tc',  icon: <FiTrendingUp size={16} />,  progressN: 2 },
+    { label: 'TC Oficial',  valor: saldos.tipo_cambio_oficial,  moneda: 'tc',  icon: <FiBarChart2 size={16} />,   progressN: 2 },
+  ] : []
 
   return (
     <>
-      <div className="space-y-8">
+      <div className="d-flex flex-column gap-4">
 
-        {/* ── Encabezado ── */}
-        <div className="flex items-center justify-between flex-wrap gap-4">
+        {/* Encabezado */}
+        <div className="d-flex align-items-center justify-content-between flex-wrap gap-3">
           <div>
-            <h1 className="text-2xl font-semibold text-gray-800">Finanzas Casa</h1>
-            <p className="text-sm text-gray-400 mt-0.5">Gestión mensual del hogar</p>
+            <h4 className="fw-semibold mb-0">Finanzas Casa</h4>
+            <p className="text-muted small mb-0">Gestión mensual del hogar</p>
           </div>
-          {/* Selector de mes */}
-          <div className="flex items-center gap-1 bg-gray-100 rounded-xl p-1">
-            <button onClick={() => setMes(prevMes(mes))}
-              className="p-1.5 rounded-lg text-gray-500 hover:bg-white hover:text-gray-800 transition-colors">
-              <svg className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
-                <path fillRule="evenodd" d="M12.79 5.23a.75.75 0 01-.02 1.06L8.832 10l3.938 3.71a.75.75 0 11-1.04 1.08l-4.5-4.25a.75.75 0 010-1.08l4.5-4.25a.75.75 0 011.06.02z" clipRule="evenodd" />
-              </svg>
+          <div className="d-flex align-items-center gap-1 bg-light rounded px-2 py-1">
+            <button className="btn btn-sm btn-link p-1" onClick={() => setMes(prevMes(mes))}>
+              <FiChevronLeft size={16} />
             </button>
-            <span className="text-sm font-medium text-gray-700 px-3 min-w-[140px] text-center">
+            <span className="small fw-medium px-2" style={{ minWidth: 130, textAlign: 'center' }}>
               {mesLabel(mes)}
             </span>
-            <button onClick={() => setMes(nextMes(mes))}
-              className="p-1.5 rounded-lg text-gray-500 hover:bg-white hover:text-gray-800 transition-colors">
-              <svg className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
-                <path fillRule="evenodd" d="M7.21 14.77a.75.75 0 01.02-1.06L11.168 10 7.23 6.29a.75.75 0 111.04-1.08l4.5 4.25a.75.75 0 010 1.08l-4.5 4.25a.75.75 0 01-1.06-.02z" clipRule="evenodd" />
-              </svg>
+            <button className="btn btn-sm btn-link p-1" onClick={() => setMes(nextMes(mes))}>
+              <FiChevronRight size={16} />
             </button>
           </div>
         </div>
 
-        {/* ── Saldos ── */}
+        {/* Saldos */}
         <div>
-          <div className="flex items-center justify-between mb-3">
-            <h2 className="text-sm font-semibold text-gray-500 uppercase tracking-wide">Saldos actuales</h2>
-            <button onClick={() => setModalSaldos(true)}
-              className="text-xs text-blue-600 hover:text-blue-700 font-medium transition-colors">
+          <div className="d-flex align-items-center justify-content-between mb-2">
+            <span className="text-muted text-uppercase small fw-semibold" style={{ letterSpacing: '.05em' }}>Saldos actuales</span>
+            <button className="btn btn-link btn-sm p-0 text-primary" onClick={() => setModalSaldos(true)}>
               {saldos ? 'Actualizar' : 'Cargar saldos'}
             </button>
           </div>
           {saldos ? (
-            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
-              {[
-                { label: 'BBVA',        valor: saldos.bbva,        moneda: 'ars', color: 'border-blue-100' },
-                { label: 'MercadoPago', valor: saldos.mercadopago, moneda: 'ars', color: 'border-indigo-100' },
-                { label: 'Efectivo',    valor: saldos.efectivo,    moneda: 'ars', color: 'border-gray-200' },
-                { label: 'Cuenta DNI',  valor: saldos.cuenta_dni,  moneda: 'ars', color: 'border-gray-200' },
-                { label: 'DolarApp',    valor: saldos.dolarapp_usd, moneda: 'usd', color: 'border-green-100' },
-                { label: 'Tipo cambio', valor: saldos.tipo_cambio,  moneda: 'tc',  color: 'border-amber-100' },
-              ].map(({ label, valor, moneda, color }) => (
-                <div key={label} className={`bg-white rounded-xl border shadow-sm p-3 ${color}`}>
-                  <p className="text-xs text-gray-400 font-medium mb-1">{label}</p>
-                  <p className="text-base font-bold text-gray-800 tabular-nums">
-                    {moneda === 'usd' ? formatUSD(valor)
-                      : moneda === 'tc' ? `$${Number(valor).toLocaleString('es-AR')}`
-                      : formatARS(valor)}
-                  </p>
+            <div className="row row-cols-2 row-cols-md-4 row-cols-lg-8 g-2">
+              {saldosCards.map(({ label, valor, moneda, icon, progressN }) => (
+                <div key={label} className="col">
+                  <div className="card short-info-card h-100">
+                    <div className="card-body p-3">
+                      <div className="avatar-text avatar-md bg-gray-200 icon mb-3">
+                        {icon}
+                      </div>
+                      <p className="fs-6 fw-bold text-dark mb-0">
+                        {moneda === 'usd' ? formatUSD(valor)
+                          : moneda === 'tc' ? `$${Number(valor ?? 0).toLocaleString('es-AR')}`
+                          : formatARS(valor)}
+                      </p>
+                      <p className="fs-13 fw-semibold text-muted mb-0">{label}</p>
+                      <div className="progress mt-2 ht-3">
+                        <div className={`progress-bar progress-${progressN}`} role="progressbar" style={{ width: '100%' }} />
+                      </div>
+                    </div>
+                  </div>
                 </div>
               ))}
             </div>
           ) : (
-            <div className="bg-gray-50 border border-dashed border-gray-300 rounded-2xl p-6 text-center">
-              <p className="text-sm text-gray-400">No hay saldos cargados.</p>
-              <button onClick={() => setModalSaldos(true)}
-                className="mt-2 text-sm text-blue-600 hover:text-blue-700 font-medium">
-                Cargar saldos →
-              </button>
+            <div className="border border-dashed rounded p-4 text-center text-muted">
+              <p className="mb-1 small">No hay saldos cargados.</p>
+              <button className="btn btn-link btn-sm p-0" onClick={() => setModalSaldos(true)}>Cargar saldos →</button>
             </div>
           )}
         </div>
 
-        {/* ── Proyección ── */}
+        {/* Proyección */}
         {saldos && (
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+          <div className="row g-3">
             {[
               {
-                label:   'Total en pesos',
-                value:   formatARS(totalPesos),
-                sub:     `${ingresos.filter(i => !i.resuelto && i.moneda==='ars').length} freelance pendiente${ingresos.filter(i=>!i.resuelto&&i.moneda==='ars').length!==1?'s':''}`,
-                accent:  'border-blue-100',
+                icon: <FiDollarSign size={20} />,
+                label: 'Total en pesos',
+                value: formatARS(totalPesos),
+                sub: `${ingresos.filter(i => !i.resuelto && i.moneda === 'ars').length} freelance pendientes`,
+                progressN: 1,
               },
               {
-                label:   'Gastos fijos del mes',
-                value:   formatARS(totalGastosARS),
-                sub:     `${gastos.filter(g=>!g.resuelto).length} pendiente${gastos.filter(g=>!g.resuelto).length!==1?'s':''}`,
-                accent:  gastos.filter(g=>!g.resuelto).length > 0 ? 'border-amber-200' : 'border-green-100',
+                icon: <FiTrendingDown size={20} />,
+                label: 'Gastos fijos del mes',
+                value: formatARS(totalGastosARS),
+                sub: `${gastos.filter(g => !g.resuelto).length} pendientes`,
+                progressN: gastos.filter(g => !g.resuelto).length > 0 ? 2 : 3,
               },
               {
-                label:   'USD proyectado fin de mes',
-                value:   formatUSD(usdProyectado),
-                sub:     usdVender > 0
-                  ? `Necesitás vender ~${formatUSD(usdVender)}`
-                  : 'No necesitás vender USD',
-                accent:  usdProyectado >= 1000 ? 'border-green-200' : 'border-red-200',
+                icon: <FiBarChart2 size={20} />,
+                label: 'USD proyectado fin de mes',
+                value: formatUSD(usdProyectado),
+                sub: usdVender > 0 ? `Necesitas vender ~${formatUSD(usdVender)}` : 'No necesitas vender USD',
+                progressN: usdProyectado >= 1000 ? 3 : 4,
               },
-            ].map(({ label, value, sub, accent }) => (
-              <div key={label} className={`bg-white rounded-2xl border shadow-sm p-5 ${accent}`}>
-                <p className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-1">{label}</p>
-                <p className="text-2xl font-bold text-gray-800 tabular-nums">{value}</p>
-                <p className="text-xs text-gray-400 mt-1">{sub}</p>
+              {
+                icon: <FiTrendingUp size={20} />,
+                label: 'Podés gastar por día',
+                value: formatARS(gastoDiario),
+                sub: `Quedan ${diasRestantes} días en el mes`,
+                progressN: gastoDiario > 5000 ? 3 : gastoDiario > 0 ? 2 : 4,
+              },
+            ].map(({ icon, label, value, sub, progressN }) => (
+              <div key={label} className="col-12 col-md-3">
+                <div className="card stretch stretch-full short-info-card">
+                  <div className="card-body">
+                    <div className="d-flex align-items-start justify-content-between mb-4">
+                      <div className="d-flex gap-4 align-items-center">
+                        <div className="avatar-text avatar-lg bg-gray-200 icon">{icon}</div>
+                        <div>
+                          <div className="fs-4 fw-bold text-dark">{value}</div>
+                          <h3 className="fs-13 fw-semibold text-truncate-1-line text-muted mb-0">{label}</h3>
+                        </div>
+                      </div>
+                    </div>
+                    <p className="text-muted small mb-1">{sub}</p>
+                    <div className="progress mt-2 ht-3">
+                      <div className={`progress-bar progress-${progressN}`} role="progressbar" style={{ width: '100%' }} />
+                    </div>
+                  </div>
+                </div>
               </div>
             ))}
           </div>
         )}
 
-        {/* ── Copiar mes anterior ── */}
+        {/* Copiar mes anterior (cuando no hay nada) */}
         {movimientos.length === 0 && (
-          <div className="flex items-center justify-between gap-3 rounded-xl bg-blue-50 border border-blue-100 px-4 py-3">
-            <p className="text-sm text-blue-700">
-              Todavía no cargaste nada este mes. Si los gastos e ingresos son parecidos a {mesLabel(prevMes(mes))}, copialos y solo ajustá lo que cambió.
-            </p>
-            <button onClick={copiarMesAnterior} disabled={copiando}
-              className="shrink-0 flex items-center gap-1.5 rounded-lg bg-blue-600 px-3 py-1.5 text-sm font-semibold text-white hover:bg-blue-700 transition-colors disabled:opacity-50 whitespace-nowrap">
+          <div className="alert alert-primary d-flex align-items-center justify-content-between gap-3">
+            <span className="small">
+              Todavía no cargaste nada este mes. Podés copiar los datos de {mesLabel(prevMes(mes))}.
+            </span>
+            <button className="btn btn-primary btn-sm flex-shrink-0" disabled={copiando}
+              onClick={async () => {
+                setCopiando(true); setErrorCopia(null)
+                const { data, error: err } = await copiarMovimientosDeMes(prevMes(mes), mes)
+                if (err) setErrorCopia(err.message)
+                else setMovimientos(prev => [...prev, ...data])
+                setCopiando(false)
+              }}>
               {copiando ? 'Copiando…' : `Copiar ${mesLabel(prevMes(mes))}`}
             </button>
           </div>
         )}
-        {errorCopia && <p className="text-sm text-red-600">{errorCopia}</p>}
+        {errorCopia && <p className="text-danger small">{errorCopia}</p>}
 
-        {/* ── Gastos e Ingresos ── */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        {/* Tablas */}
+        <div className="row g-4">
 
           {/* Gastos fijos */}
-          <div className="space-y-3">
-            <div className="flex items-center justify-between">
-              <h2 className="text-sm font-semibold text-gray-500 uppercase tracking-wide">Gastos fijos</h2>
-              <button onClick={() => setModalNuevo('egreso')}
-                className="flex items-center gap-1 text-xs text-blue-600 hover:text-blue-700 font-medium transition-colors">
-                <svg className="h-3.5 w-3.5" viewBox="0 0 20 20" fill="currentColor">
-                  <path d="M10.75 4.75a.75.75 0 00-1.5 0v4.5h-4.5a.75.75 0 000 1.5h4.5v4.5a.75.75 0 001.5 0v-4.5h4.5a.75.75 0 000-1.5h-4.5v-4.5z" />
-                </svg>
-                Agregar
-              </button>
+          <div className="col-12 col-lg-6">
+            <div className="d-flex align-items-center justify-content-between mb-2">
+              <span className="text-muted text-uppercase small fw-semibold" style={{ letterSpacing: '.05em' }}>Gastos fijos</span>
+              <div className="d-flex align-items-center gap-3">
+                <button className="btn btn-link btn-sm p-0 text-muted" disabled={copiandoG} onClick={copiarGastosAnteriores}>
+                  {copiandoG ? 'Copiando…' : `Copiar ${mesLabel(prevMes(mes))}`}
+                </button>
+                <button className="btn btn-link btn-sm p-0 text-primary d-flex align-items-center gap-1" onClick={() => setModalNuevo('egreso')}>
+                  <FiPlus size={13} /> Agregar
+                </button>
+              </div>
             </div>
 
-            <div className="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden">
+            <div className="card function-table">
               {gastos.length === 0 ? (
-                <div className="p-8 text-center text-sm text-gray-400">
-                  Sin gastos fijos este mes.
-                </div>
+                <EmptyState icon="money" title="Sin gastos este mes" description="Agrega un gasto fijo para verlo aqui." />
               ) : (
-                <table className="min-w-full divide-y divide-gray-100">
-                  <thead>
-                    <tr className="bg-gray-50/80">
-                      <th className="px-4 py-2.5 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide">Concepto</th>
-                      <th className="px-4 py-2.5 text-right text-xs font-semibold text-gray-500 uppercase tracking-wide">Monto</th>
-                      <th className="px-4 py-2.5 text-center text-xs font-semibold text-gray-500 uppercase tracking-wide">Día</th>
-                      <th className="px-4 py-2.5 text-center text-xs font-semibold text-gray-500 uppercase tracking-wide">Estado</th>
-                      <th className="px-4 py-2.5" />
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-gray-100">
-                    {gastos.map((g) => (
-                      <tr key={g.id} className={g.resuelto ? 'hover:bg-gray-50' : 'bg-amber-50/30 hover:bg-amber-50/50'}>
-                        <td className="px-4 py-2.5 text-sm text-gray-800">{g.nombre}</td>
-                        <td className="px-4 py-2.5 text-sm font-semibold tabular-nums text-gray-800 text-right">
-                          {formatARS(g.monto)}
-                        </td>
-                        <td className="px-4 py-2.5 text-sm text-gray-400 text-center">
-                          {g.vencimiento_dia ? `día ${g.vencimiento_dia}` : '—'}
-                        </td>
-                        <td className="px-4 py-2.5 text-center">
-                          <button onClick={() => toggleResuelto(g)}
-                            className={`inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-xs font-semibold transition-colors ${
-                              g.resuelto
-                                ? 'bg-green-100 text-green-700 hover:bg-green-200'
-                                : 'bg-amber-100 text-amber-700 hover:bg-amber-200'
-                            }`}>
-                            {g.resuelto ? '✓ Pagado' : 'Pendiente'}
-                          </button>
-                        </td>
-                        <td className="px-4 py-2.5">
-                          <div className="flex items-center gap-1">
-                            <button onClick={() => setEditando(g)} title="Editar"
-                              className="text-gray-300 hover:text-blue-400 transition-colors">
-                              {iconEdit}
-                            </button>
-                            <button onClick={() => eliminar(g.id)} disabled={eliminando === g.id}
-                              className="text-gray-300 hover:text-red-400 transition-colors disabled:opacity-40">
-                              {iconTrash}
-                            </button>
-                          </div>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                  <tfoot>
-                    <tr className="border-t-2 border-gray-200 bg-gray-50/80">
-                      <td className="px-4 py-2.5 text-xs font-semibold text-gray-500 uppercase">Total</td>
-                      <td className="px-4 py-2.5 text-sm font-bold tabular-nums text-gray-800 text-right">
-                        {formatARS(totalGastosARS)}
-                      </td>
-                      <td colSpan={3} className="px-4 py-2.5 text-xs text-gray-400 text-center">
-                        {gastos.filter(g=>g.resuelto).length}/{gastos.length} pagados
-                      </td>
-                    </tr>
-                  </tfoot>
-                </table>
+                <div className="card-body p-0">
+                  <div className="table-responsive">
+                    <table className="table table-hover dataTable mb-0">
+                      <thead>
+                        <tr>
+                          <th>Concepto</th>
+                          <th className="text-end">Monto</th>
+                          <th className="text-center">Dia</th>
+                          <th className="text-center">Estado</th>
+                          <th className="text-end">Acciones</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {gastos.map((g) => (
+                          <tr key={g.id} className="single-item">
+                            <td>
+                              <span className="fw-medium" style={{ color: '#0a0a0a' }}>{g.nombre}</span>
+                              {g.notas && <div className="text-muted" style={{ fontSize: '0.7rem' }}>{g.notas}</div>}
+                            </td>
+                            <td className="text-end fw-semibold">{formatARS(g.monto)}</td>
+                            <td className="text-center text-muted">{g.vencimiento_dia ? `dia ${g.vencimiento_dia}` : '—'}</td>
+                            <td className="text-center">
+                              <button onClick={() => toggleResuelto(g)}
+                                className={`badge border-0 ${g.resuelto ? 'bg-light-success' : 'bg-light-warning'}`}
+                                style={{ cursor: 'pointer' }}>
+                                {g.resuelto ? '✓ Pagado' : 'Pendiente'}
+                              </button>
+                            </td>
+                            <td>
+                              <div className="hstack gap-1 justify-content-end">
+                                <button className="avatar-text avatar-md text-muted" style={{ border: 'none', background: 'transparent' }} onClick={() => setEditando(g)}><FiEdit2 size={13} /></button>
+                                <button className="avatar-text avatar-md text-muted" style={{ border: 'none', background: 'transparent' }} disabled={eliminando === g.id} onClick={() => eliminar(g.id)}><FiTrash2 size={13} /></button>
+                              </div>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                      <tfoot>
+                        <tr style={{ borderTop: '2px solid #eaebef' }}>
+                          <td className="text-muted fw-semibold text-uppercase" style={{ fontSize: 10 }}>Total</td>
+                          <td className="text-end fw-bold">{formatARS(totalGastosARS)}</td>
+                          <td colSpan={3} className="text-center text-muted" style={{ fontSize: 11 }}>
+                            {gastos.filter(g => g.resuelto).length}/{gastos.length} pagados
+                          </td>
+                        </tr>
+                      </tfoot>
+                    </table>
+                  </div>
+                </div>
               )}
             </div>
           </div>
 
           {/* Ingresos */}
-          <div className="space-y-3">
-            <div className="flex items-center justify-between">
-              <h2 className="text-sm font-semibold text-gray-500 uppercase tracking-wide">Ingresos</h2>
-              <button onClick={() => setModalNuevo('ingreso')}
-                className="flex items-center gap-1 text-xs text-blue-600 hover:text-blue-700 font-medium transition-colors">
-                <svg className="h-3.5 w-3.5" viewBox="0 0 20 20" fill="currentColor">
-                  <path d="M10.75 4.75a.75.75 0 00-1.5 0v4.5h-4.5a.75.75 0 000 1.5h4.5v4.5a.75.75 0 001.5 0v-4.5h4.5a.75.75 0 000-1.5h-4.5v-4.5z" />
-                </svg>
-                Agregar
-              </button>
+          <div className="col-12 col-lg-6">
+            <div className="d-flex align-items-center justify-content-between mb-2">
+              <span className="text-muted text-uppercase small fw-semibold" style={{ letterSpacing: '.05em' }}>Ingresos</span>
+              <div className="d-flex align-items-center gap-3">
+                <button className="btn btn-link btn-sm p-0 text-muted" disabled={copiandoI} onClick={copiarIngresosAnteriores}>
+                  {copiandoI ? 'Copiando…' : `Copiar ${mesLabel(prevMes(mes))}`}
+                </button>
+                <button className="btn btn-link btn-sm p-0 text-primary d-flex align-items-center gap-1" onClick={() => setModalNuevo('ingreso')}>
+                  <FiPlus size={13} /> Agregar
+                </button>
+              </div>
             </div>
 
-            <div className="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden">
+            <div className="card function-table">
               {ingresos.length === 0 ? (
-                <div className="p-8 text-center text-sm text-gray-400">
-                  Sin ingresos registrados este mes.
-                </div>
+                <EmptyState icon="money" title="Sin ingresos este mes" description="Agrega un ingreso para verlo aqui." />
               ) : (
-                <table className="min-w-full divide-y divide-gray-100">
-                  <thead>
-                    <tr className="bg-gray-50/80">
-                      <th className="px-4 py-2.5 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide">Cliente / Fuente</th>
-                      <th className="px-4 py-2.5 text-right text-xs font-semibold text-gray-500 uppercase tracking-wide">Monto</th>
-                      <th className="px-4 py-2.5 text-center text-xs font-semibold text-gray-500 uppercase tracking-wide">Estado</th>
-                      <th className="px-4 py-2.5" />
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-gray-100">
-                    {ingresos.map((i) => (
-                      <tr key={i.id} className={i.resuelto ? 'hover:bg-gray-50' : 'bg-blue-50/20 hover:bg-blue-50/40'}>
-                        <td className="px-4 py-2.5">
-                          <div className="text-sm text-gray-800">{i.nombre}</div>
-                          <div className="text-xs text-gray-400">
-                            {i.categoria === 'sueldo_usd' ? 'Sueldo USD' : 'Freelance'}
-                          </div>
-                        </td>
-                        <td className="px-4 py-2.5 text-sm font-semibold tabular-nums text-right">
-                          <span className={i.moneda === 'usd' ? 'text-green-700' : 'text-gray-800'}>
-                            {i.moneda === 'usd' ? formatUSD(i.monto) : formatARS(i.monto)}
-                          </span>
-                          {i.moneda === 'usd' && saldos && (
-                            <div className="text-xs text-gray-400 font-normal">
-                              ≈ {formatARS(i.monto * tc)}
-                            </div>
-                          )}
-                        </td>
-                        <td className="px-4 py-2.5 text-center">
-                          <button onClick={() => toggleResuelto(i)}
-                            className={`inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-xs font-semibold transition-colors ${
-                              i.resuelto
-                                ? 'bg-green-100 text-green-700 hover:bg-green-200'
-                                : 'bg-blue-100 text-blue-700 hover:bg-blue-200'
-                            }`}>
-                            {i.resuelto ? '✓ Cobrado' : 'Pendiente'}
-                          </button>
-                        </td>
-                        <td className="px-4 py-2.5">
-                          <div className="flex items-center gap-1">
-                            <button onClick={() => setEditando(i)} title="Editar"
-                              className="text-gray-300 hover:text-blue-400 transition-colors">
-                              {iconEdit}
-                            </button>
-                            <button onClick={() => eliminar(i.id)} disabled={eliminando === i.id}
-                              className="text-gray-300 hover:text-red-400 transition-colors disabled:opacity-40">
-                              {iconTrash}
-                            </button>
-                          </div>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                  <tfoot>
-                    <tr className="border-t-2 border-gray-200 bg-gray-50/80">
-                      <td className="px-4 py-2.5 text-xs font-semibold text-gray-500 uppercase">Total</td>
-                      <td className="px-4 py-2.5 text-right">
-                        <div className="text-sm font-bold text-gray-800 tabular-nums">{formatARS(totalIngresosARS)}</div>
-                        {totalIngresosUSD > 0 && (
-                          <div className="text-xs font-semibold text-green-700 tabular-nums">+ {formatUSD(totalIngresosUSD)}</div>
-                        )}
-                      </td>
-                      <td colSpan={2} className="px-4 py-2.5 text-xs text-gray-400 text-center">
-                        {ingresos.filter(i=>i.resuelto).length}/{ingresos.length} cobrados
-                      </td>
-                    </tr>
-                  </tfoot>
-                </table>
+                <div className="card-body p-0">
+                  <div className="table-responsive">
+                    <table className="table table-hover dataTable mb-0">
+                      <thead>
+                        <tr>
+                          <th>Cliente / Fuente</th>
+                          <th className="text-end">Monto</th>
+                          <th className="text-center">Estado</th>
+                          <th className="text-end">Acciones</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {ingresos.map((ing) => (
+                          <tr key={ing.id} className="single-item">
+                            <td>
+                              <span className="fw-medium d-block" style={{ color: '#0a0a0a' }}>{ing.nombre}</span>
+                              <small className="text-muted">
+                                {ing.categoria === 'sueldo_usd' ? 'Sueldo USD' : 'Freelance'}
+                              </small>
+                              {ing.notas && <small className="text-muted fst-italic d-block">{ing.notas}</small>}
+                            </td>
+                            <td className="text-end fw-semibold">
+                              <span className={ing.moneda === 'usd' ? 'text-success' : ''}>
+                                {ing.moneda === 'usd' ? formatUSD(ing.monto) : formatARS(ing.monto)}
+                              </span>
+                              {ing.moneda === 'usd' && saldos && (
+                                <div className="text-muted fw-normal" style={{ fontSize: '0.7rem' }}>≈ {formatARS(ing.monto * tc)}</div>
+                              )}
+                            </td>
+                            <td className="text-center">
+                              <button onClick={() => toggleResuelto(ing)}
+                                className={`badge border-0 ${ing.resuelto ? 'bg-light-success' : 'bg-light-primary'}`}
+                                style={{ cursor: 'pointer' }}>
+                                {ing.resuelto ? '✓ Cobrado' : 'Pendiente'}
+                              </button>
+                            </td>
+                            <td>
+                              <div className="hstack gap-1 justify-content-end">
+                                <button className="avatar-text avatar-md text-muted" style={{ border: 'none', background: 'transparent' }} onClick={() => setEditando(ing)}><FiEdit2 size={13} /></button>
+                                <button className="avatar-text avatar-md text-muted" style={{ border: 'none', background: 'transparent' }} disabled={eliminando === ing.id} onClick={() => eliminar(ing.id)}><FiTrash2 size={13} /></button>
+                              </div>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                      <tfoot>
+                        <tr style={{ borderTop: '2px solid #eaebef' }}>
+                          <td className="text-muted fw-semibold text-uppercase" style={{ fontSize: 10 }}>Total</td>
+                          <td className="text-end fw-bold">
+                            <div>{formatARS(totalIngresosARS)}</div>
+                            {totalIngresosUSD > 0 && <div className="text-success">+ {formatUSD(totalIngresosUSD)}</div>}
+                          </td>
+                          <td colSpan={2} className="text-center text-muted" style={{ fontSize: 11 }}>
+                            {ingresos.filter(i => i.resuelto).length}/{ingresos.length} cobrados
+                          </td>
+                        </tr>
+                      </tfoot>
+                    </table>
+                  </div>
+                </div>
               )}
             </div>
           </div>
-        </div>
 
+        </div>
       </div>
 
       {/* Modales */}
-      {modalSaldos && <ModalSaldos saldos={saldos} onGuardar={(d) => { setSaldos(d); setModalSaldos(false) }} onCerrar={() => setModalSaldos(false)} />}
+      {modalSaldos && (
+        <ModalSaldos saldos={saldos} onGuardar={(d) => { setSaldos(d); setModalSaldos(false) }} onCerrar={() => setModalSaldos(false)} />
+      )}
       {(modalNuevo || editando) && (
         <ModalMovimiento
           mes={mes}

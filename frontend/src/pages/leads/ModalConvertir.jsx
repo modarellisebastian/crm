@@ -37,53 +37,54 @@ function ModalConvertir({ lead, onConvertido, onCerrar }) {
 
   return (
     <Modal title="Convertir en cliente" subtitle={lead.nombre} onClose={onCerrar}>
-        <form onSubmit={handleSubmit} className="px-6 py-5 space-y-4">
-          <div className="grid grid-cols-2 gap-4">
-            <div className="space-y-1">
-              <label className="block text-xs font-medium text-gray-600">Fecha de inicio</label>
-              <input type="date" value={form.fecha_inicio}
-                onChange={(e) => set('fecha_inicio', e.target.value)}
-                className="w-full rounded-lg border border-gray-300 px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
-            </div>
-            <div className="space-y-1">
-              <label className="block text-xs font-medium text-gray-600">Venc. hosting</label>
-              <input type="date" value={form.fecha_vencimiento_hosting}
-                onChange={(e) => set('fecha_vencimiento_hosting', e.target.value)}
-                className="w-full rounded-lg border border-gray-300 px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
-            </div>
+      <form onSubmit={handleSubmit} className="px-4 py-4">
+        <div className="row g-3 mb-3">
+          <div className="col-6">
+            <label className="form-label small fw-medium mb-1">Fecha de inicio</label>
+            <input type="date" value={form.fecha_inicio}
+              onChange={(e) => set('fecha_inicio', e.target.value)}
+              className="form-control form-control-sm" />
           </div>
-          <div className="space-y-1">
-            <label className="block text-xs font-medium text-gray-600">URL sitio entregado</label>
-            <input type="text" placeholder="https://..." value={form.url_sitio_entregado}
-              onChange={(e) => set('url_sitio_entregado', e.target.value)}
-              className="w-full rounded-lg border border-gray-300 px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
+          <div className="col-6">
+            <label className="form-label small fw-medium mb-1">Venc. hosting</label>
+            <input type="date" value={form.fecha_vencimiento_hosting}
+              onChange={(e) => set('fecha_vencimiento_hosting', e.target.value)}
+              className="form-control form-control-sm" />
           </div>
-          <div className="space-y-1">
-            <label className="block text-xs font-medium text-gray-600">URL demo Stitch</label>
-            <input type="text" placeholder="https://..." value={form.url_demo_stitch}
-              onChange={(e) => set('url_demo_stitch', e.target.value)}
-              className="w-full rounded-lg border border-gray-300 px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
-          </div>
-          <div className="space-y-1">
-            <label className="block text-xs font-medium text-gray-600">Notas</label>
-            <textarea rows={2} placeholder="Detalles del proyecto..." value={form.notas}
-              onChange={(e) => set('notas', e.target.value)}
-              className="w-full rounded-lg border border-gray-300 px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none" />
-          </div>
+        </div>
 
-          {error && <p className="text-sm text-red-600">{error}</p>}
+        <div className="mb-3">
+          <label className="form-label small fw-medium mb-1">URL sitio entregado</label>
+          <input type="text" placeholder="https://..." value={form.url_sitio_entregado}
+            onChange={(e) => set('url_sitio_entregado', e.target.value)}
+            className="form-control form-control-sm" />
+        </div>
 
-          <div className="flex justify-end gap-2 pt-1">
-            <button type="button" onClick={onCerrar}
-              className="rounded-lg px-4 py-2 text-sm font-medium text-gray-600 hover:bg-gray-100 transition-colors">
-              Cancelar
-            </button>
-            <button type="submit" disabled={guardando}
-              className="rounded-lg bg-green-600 px-4 py-2 text-sm font-semibold text-white hover:bg-green-700 transition-colors disabled:opacity-50">
-              {guardando ? 'Creando cliente…' : 'Crear cliente'}
-            </button>
-          </div>
-        </form>
+        <div className="mb-3">
+          <label className="form-label small fw-medium mb-1">URL demo Stitch</label>
+          <input type="text" placeholder="https://..." value={form.url_demo_stitch}
+            onChange={(e) => set('url_demo_stitch', e.target.value)}
+            className="form-control form-control-sm" />
+        </div>
+
+        <div className="mb-3">
+          <label className="form-label small fw-medium mb-1">Notas</label>
+          <textarea rows={2} placeholder="Detalles del proyecto..." value={form.notas}
+            onChange={(e) => set('notas', e.target.value)}
+            className="form-control form-control-sm" style={{ resize: 'none' }} />
+        </div>
+
+        {error && <p className="text-danger small mb-3">{error}</p>}
+
+        <div className="d-flex justify-content-end gap-2 pt-2 border-top">
+          <button type="button" onClick={onCerrar} className="btn btn-sm btn-outline-secondary">
+            Cancelar
+          </button>
+          <button type="submit" disabled={guardando} className="btn btn-sm btn-success">
+            {guardando ? 'Creando cliente...' : 'Crear cliente'}
+          </button>
+        </div>
+      </form>
     </Modal>
   )
 }

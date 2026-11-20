@@ -61,6 +61,15 @@ const NEGOCIO_LINKS = [
       </svg>
     ),
   },
+  {
+    to: '/propuestas',
+    label: 'Propuestas',
+    icon: (
+      <svg viewBox="0 0 20 20" fill="currentColor" className="w-[18px] h-[18px] shrink-0">
+        <path fillRule="evenodd" d="M4 4a2 2 0 0 1 2-2h4.586A2 2 0 0 1 12 2.586L15.414 6A2 2 0 0 1 16 7.414V16a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V4Zm2 6a1 1 0 0 1 1-1h6a1 1 0 1 1 0 2H7a1 1 0 0 1-1-1Zm1 3a1 1 0 1 0 0 2h6a1 1 0 1 0 0-2H7Z" clipRule="evenodd" />
+      </svg>
+    ),
+  },
 ]
 
 const CASA_LINKS = [

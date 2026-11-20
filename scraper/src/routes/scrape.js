@@ -319,14 +319,19 @@ router.post('/scrape', async (req, res) => {
   const duplicados = leads.length - nuevos.length
 
   let insertados = 0
+  let insertedIds = []
   if (nuevos.length > 0) {
     // es_cadena es un campo interno de scoring, no una columna de la tabla leads
     const paraInsertar = nuevos.map(({ es_cadena, ...resto }) => resto)
-    const { error: errInsert } = await supabase.from('leads').insert(paraInsertar)
+    const { data: insertedRows, error: errInsert } = await supabase
+      .from('leads')
+      .insert(paraInsertar)
+      .select('id, nombre, ciudad, instagram')
     if (errInsert) {
       return res.status(500).json({ error: `Insert error: ${errInsert.message}` })
     }
     insertados = nuevos.length
+    insertedIds = insertedRows ?? []
   }
 
   await supabase
@@ -338,6 +343,18 @@ router.post('/scrape', async (req, res) => {
 
   const por_prioridad = { alta: 0, media: 0, baja: 0 }
   for (const l of nuevos) por_prioridad[l.prioridad]++
+
+  // Enriquecer Instagram en background para leads sin Instagram detectado
+  // Se dispara sin await para no bloquear la respuesta al frontend
+  const sinIG = insertedIds.filter((r) => !r.instagram)
+  if (sinIG.length > 0) {
+    Promise.allSettled(
+      sinIG.map((r) => enriquecerInstagramFn({ leadId: r.id, nombre: r.nombre, ciudad: r.ciudad }))
+    ).then((results) => {
+      const encontrados = results.filter((r) => r.status === 'fulfilled' && r.value.encontrado).length
+      console.log(`[scraper] enriquecimiento IG: ${encontrados}/${sinIG.length} encontrados`)
+    })
+  }
 
   return res.json({
     insertados, duplicados,
@@ -364,12 +381,8 @@ function extraerUsernameIG(url) {
   return null
 }
 
-router.post('/enriquecer-instagram', async (req, res) => {
-  const { leadId, nombre, ciudad } = req.body
-  if (!leadId || !nombre) {
-    return res.status(400).json({ error: 'leadId y nombre son requeridos' })
-  }
-
+// Lógica central reutilizable (sin HTTP response)
+async function enriquecerInstagramFn({ leadId, nombre, ciudad }) {
   const query = ciudad
     ? `site:instagram.com "${nombre}" "${ciudad}"`
     : `site:instagram.com "${nombre}" Argentina`
@@ -391,12 +404,10 @@ router.post('/enriquecer-instagram', async (req, res) => {
       }
     )
     resultados = Array.isArray(response.data) ? response.data : []
-  } catch (err) {
-    const mensaje = err.response?.data?.error?.message || err.message
-    return res.status(502).json({ error: `Apify error: ${mensaje}` })
+  } catch {
+    return { instagram: null, encontrado: false }
   }
 
-  // Buscar el primer username válido en los resultados orgánicos
   let instagram = null
   for (const pagina of resultados) {
     for (const item of (pagina.organicResults ?? [])) {
@@ -410,7 +421,16 @@ router.post('/enriquecer-instagram', async (req, res) => {
     await supabase.from('leads').update({ instagram }).eq('id', leadId)
   }
 
-  return res.json({ instagram, encontrado: !!instagram })
+  return { instagram, encontrado: !!instagram }
+}
+
+router.post('/enriquecer-instagram', async (req, res) => {
+  const { leadId, nombre, ciudad } = req.body
+  if (!leadId || !nombre) {
+    return res.status(400).json({ error: 'leadId y nombre son requeridos' })
+  }
+  const resultado = await enriquecerInstagramFn({ leadId, nombre, ciudad })
+  return res.json(resultado)
 })
 
 export default router

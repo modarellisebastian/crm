@@ -2,12 +2,16 @@ import React from 'react'
 import ReactDOM from 'react-dom/client'
 import { BrowserRouter } from 'react-router-dom'
 import App from './App.jsx'
+import NavigationProvider from './context/NavigationProvider.jsx'
+import '../public/assets/scss/theme.scss'
 import './index.css'
 
 ReactDOM.createRoot(document.getElementById('root')).render(
   <React.StrictMode>
     <BrowserRouter>
-      <App />
+      <NavigationProvider>
+        <App />
+      </NavigationProvider>
     </BrowserRouter>
   </React.StrictMode>
 )

@@ -1,206 +1,268 @@
 import { useEffect, useState } from 'react'
-import Tooltip from '../../components/ui/Tooltip'
-import { fetchClientesCompletos } from '../../services/clientsService'
-import { formatARS, diasHasta } from './constants'
+import { useNavigate } from 'react-router-dom'
+import { FiPlus, FiUsers, FiRepeat, FiAlertTriangle, FiDollarSign, FiEdit3, FiTrash2, FiExternalLink } from 'react-icons/fi'
+import { fetchClientesCompletos, eliminarCliente } from '../../services/clientsService'
+import { useToast } from '../../context/ToastProvider'
 import ModalCliente from './ModalCliente'
-import FilaCliente from './FilaCliente'
+import ConfirmModal from '../../components/ConfirmModal'
+
+// ─── helpers ──────────────────────────────────────────────────────────────────
+
+function formatARS(n) {
+  return Number(n).toLocaleString('es-AR', { style: 'currency', currency: 'ARS', minimumFractionDigits: 0 })
+}
+
+function diasHasta(iso) {
+  if (!iso) return null
+  return Math.ceil((new Date(iso) - new Date()) / 86400000)
+}
+
+// ─── stat card ────────────────────────────────────────────────────────────────
+
+function StatCard({ icon, label, value, color, progressN = 1 }) {
+  return (
+    <div className="col-xl-3 col-md-6">
+      <div className="card stretch stretch-full short-info-card h-100">
+        <div className="card-body">
+          <div className="d-flex align-items-center gap-3 mb-3">
+            <div className="avatar-text avatar-lg bg-gray-200 icon" style={{ color }}>{icon}</div>
+            <div>
+              <div className="fs-4 fw-bold text-dark">{value}</div>
+              <p className="fs-13 fw-semibold text-muted mb-0">{label}</p>
+            </div>
+          </div>
+          <div className="progress ht-3">
+            <div className={`progress-bar progress-${progressN}`} style={{ width: '100%' }} />
+          </div>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+// ─── fila simplificada ────────────────────────────────────────────────────────
+
+const AVATAR_COLORS = ['#0a0a0a','#16a34a','#ca8a04','#dc2626','#8b5cf6','#06b6d4','#ec4899']
+function avatarColor(str) {
+  let h = 0; for (const c of (str||'')) h = (h * 31 + c.charCodeAt(0)) & 0xffff
+  return AVATAR_COLORS[h % AVATAR_COLORS.length]
+}
+
+const ACTION_BTN = {
+  display:'inline-flex', alignItems:'center', justifyContent:'center',
+  width:30, height:30, borderRadius:'50%',
+  border:'1px solid #e8eaf0', background:'#fff',
+  cursor:'pointer', flexShrink:0,
+}
+
+function FilaCliente({ cliente, onEditar, onEliminar }) {
+  const navigate = useNavigate()
+  const cobros = cliente.cobros ?? []
+  const pendienteARS = cobros.filter(c => !c.pagado && c.moneda === 'ars').reduce((s,c) => s + c.monto, 0)
+  const pendienteUSD = cobros.filter(c => !c.pagado && c.moneda === 'usd').reduce((s,c) => s + c.monto, 0)
+  const proxVenc = cobros.filter(c => !c.pagado && c.fecha_vencimiento).sort((a,b) => a.fecha_vencimiento.localeCompare(b.fecha_vencimiento))[0]
+  const dias = diasHasta(proxVenc?.fecha_vencimiento)
+  const color = avatarColor(cliente.nombre)
+  const inicial = (cliente.nombre?.[0] ?? '?').toUpperCase()
+
+  return (
+    <tr className="single-item chat-single-item">
+      {/* Cliente */}
+      <td>
+        <div className="d-flex align-items-center gap-3">
+          <div style={{ width:36, height:36, borderRadius:'50%', background: color+'22', color, display:'flex', alignItems:'center', justifyContent:'center', fontWeight:700, fontSize:14, flexShrink:0 }}>
+            {inicial}
+          </div>
+          <div>
+            <button
+              onClick={() => navigate(`/clientes/${cliente.id}`)}
+              style={{ background:'none', border:'none', padding:0, cursor:'pointer', fontWeight:600, fontSize:14, color:'#0a0a0a', textAlign:'left' }}
+            >
+              {cliente.nombre}
+            </button>
+            {cliente.rubro && <p className="mb-0 text-muted" style={{ fontSize:11 }}>{cliente.rubro}</p>}
+          </div>
+        </div>
+      </td>
+
+      {/* Tipo */}
+      <td>
+        {cliente.tipo === 'recurrente'
+          ? <span className="badge bg-light-success text-success" style={{ fontSize:11 }}><FiRepeat size={10} className="me-1" />Recurrente</span>
+          : <span className="badge bg-light-secondary text-secondary" style={{ fontSize:11 }}>Puntual</span>
+        }
+      </td>
+
+      {/* Ciudad */}
+      <td className="text-muted" style={{ fontSize:13 }}>{cliente.ciudad || '—'}</td>
+
+      {/* Pendiente */}
+      <td>
+        {pendienteARS > 0 && <p className="fw-semibold mb-0 text-warning" style={{ fontSize:13 }}>{formatARS(pendienteARS)}</p>}
+        {pendienteUSD > 0 && <p className="fw-semibold mb-0 text-primary" style={{ fontSize:13 }}>U$D {pendienteUSD.toFixed(0)}</p>}
+        {pendienteARS === 0 && pendienteUSD === 0 && <span className="badge bg-light-success text-success" style={{ fontSize:11 }}>Al día</span>}
+      </td>
+
+      {/* Próx vencimiento */}
+      <td>
+        {proxVenc && dias !== null ? (
+          <span className={`badge ${dias < 0 ? 'bg-light-danger text-danger' : dias <= 7 ? 'bg-light-warning text-warning' : 'bg-light-secondary text-secondary'}`} style={{ fontSize:11 }}>
+            {dias < 0 ? `Vencido ${Math.abs(dias)}d` : dias === 0 ? 'Hoy' : `${dias}d`}
+          </span>
+        ) : <span className="text-muted" style={{ fontSize:13 }}>—</span>}
+      </td>
+
+      {/* Acciones */}
+      <td>
+        <div className="d-flex align-items-center gap-1 justify-content-end">
+          <button onClick={() => navigate(`/clientes/${cliente.id}`)} style={{ ...ACTION_BTN, color:'#0a0a0a', borderColor:'#ebebeb' }} title="Ver detalle">
+            <FiExternalLink size={13} />
+          </button>
+          <button onClick={() => onEditar(cliente)} style={{ ...ACTION_BTN, color:'#737373' }} title="Editar">
+            <FiEdit3 size={13} />
+          </button>
+          <button onClick={() => onEliminar(cliente)} style={{ ...ACTION_BTN, color:'#dc2626', borderColor:'#ebebeb' }} title="Eliminar">
+            <FiTrash2 size={13} />
+          </button>
+        </div>
+      </td>
+    </tr>
+  )
+}
+
+// ─── página principal ─────────────────────────────────────────────────────────
 
 export default function Clientes() {
-  const [clientes,      setClientes]      = useState([])
-  const [loading,       setLoading]       = useState(true)
-  const [error,         setError]         = useState(null)
-  const [modalCliente,  setModalCliente]  = useState(null)
+  const toast = useToast()
+  const [clientes, setClientes] = useState([])
+  const [loading, setLoading] = useState(true)
+  const [modalCliente, setModalCliente] = useState(null)
+  const [confirmEliminar, setConfirmEliminar] = useState(null)
+  const [eliminando, setEliminando] = useState(false)
+  const [filtro, setFiltro] = useState('todos')
 
   useEffect(() => {
-    async function fetchClientes() {
-      const { data, error } = await fetchClientesCompletos()
-      if (error) setError(error.message)
-      else setClientes(data)
-      setLoading(false)
-    }
-    fetchClientes()
+    fetchClientesCompletos().then(({ data }) => { setClientes(data ?? []); setLoading(false) })
   }, [])
 
-  function handleEditar(cliente) { setModalCliente({ cliente }) }
-  function handleEliminar(id)    { setClientes((prev) => prev.filter((c) => c.id !== id)) }
-
-  function handleClienteGuardado(clienteActualizado) {
-    setClientes((prev) => {
-      const existe = prev.find((c) => c.id === clienteActualizado.id)
-      return existe
-        ? prev.map((c) => c.id === clienteActualizado.id ? clienteActualizado : c)
-        : [clienteActualizado, ...prev]
+  function handleClienteGuardado(c) {
+    setClientes(prev => {
+      const idx = prev.findIndex(x => x.id === c.id)
+      if (idx >= 0) { const n = [...prev]; n[idx] = { ...prev[idx], ...c }; return n }
+      return [c, ...prev]
     })
     setModalCliente(null)
   }
 
-  // Métricas
-  const pagosFlat = clientes.flatMap((c) => c.payments ?? [])
-  const { inicio, fin } = (() => {
-    const now = new Date()
-    return {
-      inicio: new Date(now.getFullYear(), now.getMonth(), 1).toISOString().split('T')[0],
-      fin:    new Date(now.getFullYear(), now.getMonth() + 1, 0).toISOString().split('T')[0],
-    }
-  })()
-  const pendienteTotal = pagosFlat.filter((p) => !p.pagado).reduce((s, p) => s + (p.monto ?? 0), 0)
-  const cobradoMes     = pagosFlat
-    .filter((p) => p.pagado && p.fecha_cobro >= inicio && p.fecha_cobro <= fin)
-    .reduce((s, p) => s + (p.monto ?? 0), 0)
-  const proxVencimientos = clientes.filter((c) => {
-    const d = diasHasta(c.fecha_vencimiento_hosting)
-    return d !== null && d >= 0 && d <= 30
+  async function handleEliminarConfirm() {
+    setEliminando(true)
+    const { error } = await eliminarCliente(confirmEliminar.id)
+    if (error) { toast('Error al eliminar', 'error') }
+    else { setClientes(prev => prev.filter(c => c.id !== confirmEliminar.id)); toast('Cliente eliminado', 'error') }
+    setConfirmEliminar(null)
+    setEliminando(false)
+  }
+
+  const lista = filtro === 'todos' ? clientes : clientes.filter(c => c.tipo === filtro)
+  const cobrosFlat = clientes.flatMap(c => c.cobros ?? [])
+  const pendienteARS = cobrosFlat.filter(c => !c.pagado && c.moneda === 'ars').reduce((s,c) => s + c.monto, 0)
+  const pendienteUSD = cobrosFlat.filter(c => !c.pagado && c.moneda === 'usd').reduce((s,c) => s + c.monto, 0)
+  const recurrentes = clientes.filter(c => c.tipo === 'recurrente').length
+
+  const vencHoy = cobrosFlat.filter(c => {
+    if (c.pagado || !c.fecha_vencimiento) return false
+    return diasHasta(c.fecha_vencimiento) !== null && diasHasta(c.fecha_vencimiento) <= 7
   }).length
 
-  if (loading) return (
-    <div className="space-y-4">
-      <h1 className="text-2xl font-semibold text-gray-800">Clientes</h1>
-      <p className="text-sm text-gray-400">Cargando clientes…</p>
-    </div>
-  )
-
-  if (error) return (
-    <div className="space-y-4">
-      <h1 className="text-2xl font-semibold text-gray-800">Clientes</h1>
-      <p className="text-sm text-red-500">Error: {error}</p>
-    </div>
-  )
-
   return (
-    <>
-      <div className="space-y-8">
+    <div className="p-4">
+      {/* Header */}
+      <div className="d-flex align-items-center justify-content-between mb-4">
+        <div>
+          <h5 className="fw-bold mb-0" style={{ color:'#0a0a0a' }}>Clientes</h5>
+          <p className="text-muted mb-0" style={{ fontSize:13 }}>{clientes.length} clientes en total</p>
+        </div>
+        <button className="btn btn-primary d-flex align-items-center gap-2" style={{ fontSize:13 }} onClick={() => setModalCliente({})}>
+          <FiPlus size={15} /> Nuevo cliente
+        </button>
+      </div>
 
-        {/* Encabezado */}
-        <div className="flex items-center justify-between">
-          <div>
-            <h1 className="text-2xl font-semibold text-gray-800">Clientes</h1>
-            <p className="text-sm text-gray-400 mt-0.5">Hacé click en el nombre para ver y registrar cobros</p>
+      {/* Stats */}
+      <div className="row g-3 mb-4">
+        <StatCard icon={<FiUsers size={18}/>}         label="Total clientes"     value={clientes.length}  color="#0a0a0a" progressN={1} />
+        <StatCard icon={<FiRepeat size={18}/>}         label="Recurrentes"        value={recurrentes}      color="#16a34a" progressN={2} />
+        <StatCard icon={<FiDollarSign size={18}/>}     label="Pendiente ARS"      value={formatARS(pendienteARS)} color="#ca8a04" progressN={3} />
+        <StatCard icon={<FiAlertTriangle size={18}/>}  label="Vencen esta semana" value={vencHoy}          color="#dc2626" progressN={4} />
+      </div>
+
+      {/* Tabla */}
+      <div className="card stretch stretch-full">
+        <div className="card-header d-flex align-items-center gap-3 flex-wrap justify-content-between">
+          <h6 className="card-title mb-0">Listado</h6>
+          <div className="d-flex gap-1">
+            {[['todos','Todos'], ['recurrente','Recurrentes'], ['puntual','Puntuales']].map(([val, label]) => (
+              <button key={val} onClick={() => setFiltro(val)}
+                className={`btn btn-sm ${filtro === val ? 'btn-primary' : 'btn-outline-secondary'}`}
+                style={{ fontSize:12, borderRadius:20, padding:'3px 12px' }}>
+                {label}
+              </button>
+            ))}
           </div>
-          <button
-            onClick={() => setModalCliente('nuevo')}
-            className="flex items-center gap-1.5 rounded-lg bg-blue-600 px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-blue-700 transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
-          >
-            <svg className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
-              <path d="M10.75 4.75a.75.75 0 00-1.5 0v4.5h-4.5a.75.75 0 000 1.5h4.5v4.5a.75.75 0 001.5 0v-4.5h4.5a.75.75 0 000-1.5h-4.5v-4.5z" />
-            </svg>
-            Nuevo cliente
-          </button>
         </div>
 
-        {/* Métricas */}
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-          {[
-            {
-              label: 'Clientes activos',
-              value: clientes.length,
-              tooltip: 'Total de clientes registrados en el CRM.',
-              accent: 'border-gray-200',
-            },
-            {
-              label: 'Cobrado este mes',
-              value: formatARS(cobradoMes),
-              tooltip: 'Total marcado como cobrado con fecha en el mes actual.',
-              accent: 'border-green-100',
-            },
-            {
-              label: 'Pendiente de cobro',
-              value: formatARS(pendienteTotal),
-              tooltip: 'Total de cobros registrados que aún no fueron marcados como pagados, de todos los clientes.',
-              accent: pendienteTotal > 0 ? 'border-amber-200' : 'border-gray-200',
-            },
-          ].map(({ label, value, tooltip, accent }) => (
-            <div key={label} className={`bg-white rounded-2xl border shadow-sm p-5 space-y-1 ${accent}`}>
-              <div className="flex items-center gap-1.5">
-                <p className="text-xs font-medium text-gray-500 uppercase tracking-wide">{label}</p>
-                <Tooltip text={tooltip} />
-              </div>
-              <p className="text-2xl font-bold text-gray-800 tabular-nums">{value}</p>
+        <div className="card-body p-0">
+          {loading ? (
+            <div className="text-center py-5"><span className="spinner-border text-primary" /></div>
+          ) : lista.length === 0 ? (
+            <div className="text-center py-5 text-muted">
+              <FiUsers size={36} className="mb-3 opacity-50 d-block mx-auto" />
+              <p className="fw-semibold mb-1">No hay clientes todavía</p>
+              <button className="btn btn-primary btn-sm mt-2" onClick={() => setModalCliente({})}>
+                Crear primer cliente
+              </button>
             </div>
-          ))}
-        </div>
-
-        {/* Alerta vencimientos */}
-        {proxVencimientos > 0 && (
-          <div className="flex items-center gap-3 rounded-xl bg-amber-50 border border-amber-200 px-4 py-3">
-            <svg className="w-5 h-5 text-amber-500 shrink-0" viewBox="0 0 20 20" fill="currentColor">
-              <path fillRule="evenodd" d="M8.485 2.495c.673-1.167 2.357-1.167 3.03 0l6.28 10.875c.673 1.167-.17 2.625-1.516 2.625H3.72c-1.347 0-2.189-1.458-1.515-2.625L8.485 2.495zM10 5a.75.75 0 01.75.75v3.5a.75.75 0 01-1.5 0v-3.5A.75.75 0 0110 5zm0 9a1 1 0 100-2 1 1 0 000 2z" clipRule="evenodd" />
-            </svg>
-            <p className="text-sm text-amber-800">
-              <span className="font-semibold">{proxVencimientos} cliente{proxVencimientos !== 1 ? 's' : ''}</span>
-              {' '}tiene{proxVencimientos !== 1 ? 'n' : ''} el hosting por vencer en los próximos 30 días.
-            </p>
-          </div>
-        )}
-
-        {/* Tabla */}
-        <div className="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden">
-          <div className="overflow-x-auto">
-            <table className="min-w-full divide-y divide-gray-100">
-              <thead>
-                <tr className="bg-gray-50/80">
-                  <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide">
-                    Cliente
-                  </th>
-                  <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide">
-                    <div className="flex items-center gap-1">
-                      Servicios
-                      <Tooltip text="Servicios activos contratados. Se usan para pre-completar el monto al registrar cobros. Los podés gestionar desde el botón de editar." wide />
-                    </div>
-                  </th>
-                  <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide">
-                    <div className="flex items-center gap-1">
-                      Hosting
-                      <Tooltip text="Fecha de vencimiento del plan de hosting. Amarillo = menos de 30 días. Rojo = ya vencido." />
-                    </div>
-                  </th>
-                  <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide">
-                    <div className="flex items-center gap-1">
-                      Pendiente
-                      <Tooltip text="Cobros registrados que aún no fueron marcados como pagados. Se desglosa por tipo de servicio." wide />
-                    </div>
-                  </th>
-                  <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide">
-                    Acciones
-                  </th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-gray-100">
-                {clientes.length === 0 ? (
+          ) : (
+            <div className="table-responsive">
+              <table className="table function-table mb-0">
+                <thead>
                   <tr>
-                    <td colSpan={5} className="px-4 py-16 text-center">
-                      <div className="space-y-2">
-                        <svg className="w-8 h-8 text-gray-200 mx-auto" viewBox="0 0 20 20" fill="currentColor">
-                          <path fillRule="evenodd" d="M6 3.75A2.75 2.75 0 018.75 1h2.5A2.75 2.75 0 0114 3.75v.443c.572.055 1.14.122 1.706.2C17.053 4.582 18 5.75 18 7.07v3.469c0 1.126-.694 2.191-1.83 2.54-1.952.599-4.024.921-6.17.921s-4.219-.322-6.17-.921C2.694 12.73 2 11.665 2 10.539V7.07c0-1.321.947-2.489 2.294-2.676A41.047 41.047 0 016 4.193V3.75Zm6.5 0v.325a41.622 41.622 0 00-5 0V3.75c0-.69.56-1.25 1.25-1.25h2.5c.69 0 1.25.56 1.25 1.25ZM10 10a1 1 0 00-1 1v.01a1 1 0 001 1h.01a1 1 0 001-1V11a1 1 0 00-1-1H10Z" clipRule="evenodd" />
-                          <path d="M3 15.055v-.93a49.176 49.176 0 008 .53c2.769 0 5.448-.294 8-.53v.93c0 1.347-.985 2.53-2.363 2.686a41.454 41.454 0 01-11.274 0C3.985 17.585 3 16.402 3 15.055Z" />
-                        </svg>
-                        <p className="text-sm text-gray-400">No hay clientes todavía.</p>
-                        <p className="text-xs text-gray-400">Creá uno con "Nuevo cliente" o convertí un lead cerrado desde la sección Leads.</p>
-                      </div>
-                    </td>
+                    <th>Cliente</th>
+                    <th style={{ width:110 }}>Tipo</th>
+                    <th style={{ width:120 }}>Ciudad</th>
+                    <th style={{ width:160 }}>Pendiente</th>
+                    <th style={{ width:120 }}>Próx. venc.</th>
+                    <th style={{ width:100 }}></th>
                   </tr>
-                ) : (
-                  clientes.map((cliente) => (
-                    <FilaCliente
-                      key={cliente.id}
-                      cliente={cliente}
-                      onEditar={handleEditar}
-                      onEliminar={handleEliminar}
-                    />
-                  ))
-                )}
-              </tbody>
-            </table>
-          </div>
+                </thead>
+                <tbody>
+                  {lista.map(c => (
+                    <FilaCliente key={c.id} cliente={c} onEditar={c => setModalCliente({ cliente: c })} onEliminar={setConfirmEliminar} />
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
         </div>
       </div>
 
-      {modalCliente && (
+      {modalCliente !== null && (
         <ModalCliente
-          clienteInicial={modalCliente === 'nuevo' ? null : modalCliente.cliente}
-          onGuardar={handleClienteGuardado}
-          onCerrar={() => setModalCliente(null)}
+          clienteInicial={modalCliente?.cliente ?? null}
+          onClose={() => setModalCliente(null)}
+          onGuardado={handleClienteGuardado}
         />
       )}
-    </>
+
+      {confirmEliminar && (
+        <ConfirmModal
+          title="Eliminar cliente"
+          message={`¿Eliminás a "${confirmEliminar.nombre}"? Se borrarán también sus servicios y cobros.`}
+          confirmLabel="Eliminar"
+          loading={eliminando}
+          onConfirm={handleEliminarConfirm}
+          onCancel={() => setConfirmEliminar(null)}
+        />
+      )}
+    </div>
   )
 }
